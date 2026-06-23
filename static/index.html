@@ -74,14 +74,17 @@
       </div>
 
       <!-- Sonuç -->
-      <div class="panel">
+      <div class="panel" id="resultPanel">
         <div class="panel-header">
           <span id="resultTitle">Sonuç</span>
           <div style="display:flex;gap:8px;align-items:center">
             <button class="btn-copy" id="copyBtn" onclick="copyResult()" style="display:none">Kopyala</button>
+            <button class="btn-copy" id="mdBtn" onclick="downloadMarkdown()" style="display:none">Markdown</button>
+            <button class="btn-copy" id="pdfBtn" onclick="window.print()" style="display:none">PDF</button>
             <span id="status"></span>
           </div>
         </div>
+        <div class="print-title">VaultScan — Güvenlik Analiz Raporu</div>
         <div id="result" class="result">Analiz sonucu burada görünecek...</div>
       </div>
     </div>

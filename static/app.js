@@ -1,3 +1,31 @@
+function countSeverities(html) {
+  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+  const regex = /badge-(critical|high|medium|low)\b/g;
+  let m;
+  while ((m = regex.exec(html))) counts[m[1]]++;
+  return counts;
+}
+
+function summaryPillsHtml(counts) {
+  const labels = { critical: 'Kritik', high: 'Yüksek', medium: 'Orta', low: 'Düşük' };
+  const total = counts.critical + counts.high + counts.medium + counts.low;
+
+  if (total === 0) {
+    return '<span class="summary-clean">✓ Kritik bulgu yok</span>';
+  }
+
+  const pills = Object.keys(labels)
+    .filter(key => counts[key] > 0)
+    .map(key => `<span class="summary-pill summary-${key}"><strong>${counts[key]}</strong> ${labels[key]}</span>`)
+    .join('');
+
+  return `<span class="summary-pill summary-total"><strong>${total}</strong> Bulgu</span>${pills}`;
+}
+
+function summaryBarHtml(html) {
+  return `<div class="summary-bar">${summaryPillsHtml(countSeverities(html))}</div>`;
+}
+
 function switchTab(tab, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
@@ -6,16 +34,28 @@ function switchTab(tab, el) {
   document.getElementById('githubPanel').style.display = tab === 'github' ? 'flex' : 'none';
 }
 
-function setLoading(msg) {
+function showExportButtons() {
+  document.getElementById('copyBtn').style.display = 'inline-block';
+  document.getElementById('mdBtn').style.display = 'inline-block';
+  document.getElementById('pdfBtn').style.display = 'inline-block';
+}
+
+function hideExportButtons() {
   document.getElementById('copyBtn').style.display = 'none';
+  document.getElementById('mdBtn').style.display = 'none';
+  document.getElementById('pdfBtn').style.display = 'none';
+}
+
+function setLoading(msg) {
+  hideExportButtons();
   document.getElementById('status').className = 'status-loading';
   document.getElementById('status').textContent = msg;
   document.getElementById('result').innerHTML = `<p class="muted">⏳ ${msg}</p>`;
 }
 
 function setResult(html) {
-  document.getElementById('result').innerHTML = html;
-  document.getElementById('copyBtn').style.display = 'inline-block';
+  document.getElementById('result').innerHTML = summaryBarHtml(html) + html;
+  showExportButtons();
   document.getElementById('status').className = 'status-done';
   document.getElementById('status').textContent = '✓ Tamamlandı';
 }
@@ -88,7 +128,7 @@ async function analyzeGithub() {
   if (!url) { setError('GitHub URL gir.'); return; }
 
   btn.disabled = true;
-  document.getElementById('copyBtn').style.display = 'none';
+  hideExportButtons();
   document.getElementById('status').className = 'status-loading';
   document.getElementById('status').textContent = 'Bağlanıyor...';
   document.getElementById('result').innerHTML = '<p class="muted">⏳ Repo analiz ediliyor...</p>';
@@ -141,6 +181,7 @@ async function analyzeGithub() {
                 </div>
                 <div id="progressFile" class="progress-file"></div>
               </div>
+              <div class="summary-bar" id="summaryBar"></div>
               <div id="resultsContainer"></div>
             `;
           }
@@ -162,12 +203,14 @@ async function analyzeGithub() {
             if (container) {
               container.innerHTML += `<div class="file-section"><div class="file-name">📄 ${msg.file}</div>${msg.result}</div>`;
             }
+            const summaryBar = document.getElementById('summaryBar');
+            if (summaryBar) summaryBar.innerHTML = summaryPillsHtml(countSeverities(container.innerHTML));
           }
 
           if (msg.type === 'done') {
             const progressWrap = document.querySelector('.progress-wrap');
             if (progressWrap) progressWrap.style.display = 'none';
-            document.getElementById('copyBtn').style.display = 'inline-block';
+            showExportButtons();
             document.getElementById('status').className = 'status-done';
             document.getElementById('status').textContent = '✓ Tamamlandı';
           }
@@ -188,4 +231,49 @@ function copyResult() {
     copyBtn.textContent = '✓ Kopyalandı';
     setTimeout(() => { copyBtn.textContent = 'Kopyala'; }, 2000);
   });
+}
+
+function resultToMarkdown() {
+  const root = document.getElementById('result');
+  const title = document.getElementById('resultTitle').textContent.trim();
+  const lines = [`# VaultScan Güvenlik Raporu`, ``, `**${title}**  `, `_Oluşturulma: ${new Date().toLocaleString('tr-TR')}_`, ``];
+
+  const summary = root.querySelector('.summary-bar');
+  if (summary) {
+    lines.push('## Özet', '');
+    summary.querySelectorAll('.summary-pill, .summary-clean').forEach(p => {
+      lines.push(`- ${p.textContent.trim()}`);
+    });
+    lines.push('');
+  }
+
+  const fileSections = root.querySelectorAll('.file-section');
+  const groups = fileSections.length ? fileSections : [root];
+
+  groups.forEach(group => {
+    const fileName = group.querySelector('.file-name');
+    if (fileName) lines.push(`## ${fileName.textContent.trim()}`, '');
+
+    group.querySelectorAll('.finding').forEach(f => {
+      const findingTitle = f.querySelector('.finding-title')?.textContent.trim() || '';
+      const badge = f.querySelector('.badge')?.textContent.trim() || '';
+      lines.push(`### ${findingTitle} [${badge}]`, '');
+      f.querySelectorAll('.finding-body p').forEach(p => {
+        lines.push(`- ${p.textContent.trim()}`);
+      });
+      lines.push('');
+    });
+  });
+
+  return lines.join('\n');
+}
+
+function downloadMarkdown() {
+  const blob = new Blob([resultToMarkdown()], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `vaultscan-rapor-${Date.now()}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
