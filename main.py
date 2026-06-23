@@ -140,69 +140,89 @@ async def analyze_github(request: GithubRequest):
     if request.token:
         headers["Authorization"] = f"token {request.token}"
 
+    def github_error_message(resp) -> str:
+        if resp.status_code == 401:
+            return "GitHub token geçersiz veya süresi dolmuş."
+        if resp.status_code == 403:
+            if resp.headers.get("X-RateLimit-Remaining") == "0":
+                return "GitHub API rate limit'e ulaşıldı. Birkaç dakika sonra tekrar deneyin veya bir token ekleyin."
+            return "Bu repoya erişim izniniz yok."
+        if resp.status_code == 404:
+            return f"Repo bulunamadı: {owner}/{repo}. Private bir repoysa token girmeniz gerekebilir."
+        return f"GitHub API hatası (HTTP {resp.status_code})."
+
     async def stream():
-        async with httpx.AsyncClient(timeout=30) as client:
-            tree_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/HEAD?recursive=1"
-            tree_resp = await client.get(tree_url, headers=headers)
-            if tree_resp.status_code != 200:
-                yield json.dumps({"type": "error", "message": f"Repo bulunamadı: {owner}/{repo}"}) + "\n"
-                return
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                tree_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/HEAD?recursive=1"
+                tree_resp = await client.get(tree_url, headers=headers)
+                if tree_resp.status_code != 200:
+                    yield json.dumps({"type": "error", "message": github_error_message(tree_resp)}) + "\n"
+                    return
 
-            tree = tree_resp.json().get("tree", [])
-            files = [
-                f for f in tree
-                if f["type"] == "blob" and
-                any(f["path"].endswith(ext) for ext in SUPPORTED_EXTENSIONS) and
-                f.get("size", 0) < 100000 and
-                'node_modules' not in f["path"] and
-                'vendor' not in f["path"] and
-                '.min.' not in f["path"]
-            ]
+                tree = tree_resp.json().get("tree", [])
+                files = [
+                    f for f in tree
+                    if f["type"] == "blob" and
+                    any(f["path"].endswith(ext) for ext in SUPPORTED_EXTENSIONS) and
+                    f.get("size", 0) < 100000 and
+                    'node_modules' not in f["path"] and
+                    'vendor' not in f["path"] and
+                    '.min.' not in f["path"]
+                ]
 
-            files.sort(key=lambda f: score_file(f["path"]), reverse=True)
-            files = files[:request.max_files]
+                files.sort(key=lambda f: score_file(f["path"]), reverse=True)
+                files = files[:request.max_files]
 
-            if not files:
-                yield json.dumps({"type": "error", "message": "Desteklenen dosya bulunamadı."}) + "\n"
-                return
+                if not files:
+                    yield json.dumps({"type": "error", "message": "Desteklenen dosya bulunamadı."}) + "\n"
+                    return
 
-            total = len(files)
-            yield json.dumps({"type": "start", "total": total, "repo": f"{owner}/{repo}"}) + "\n"
+                total = len(files)
+                yield json.dumps({"type": "start", "total": total, "repo": f"{owner}/{repo}"}) + "\n"
 
-            file_contents = []
-            for i, f in enumerate(files):
-                raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{f['path']}"
-                yield json.dumps({"type": "progress", "current": i + 1, "total": total, "file": f["path"], "phase": "indiriliyor"}) + "\n"
-                try:
-                    resp = await client.get(raw_url, headers=headers)
-                    if resp.status_code == 200:
-                        file_contents.append({
-                            "path": f["path"],
-                            "code": resp.text,
-                            "language": f["path"].split(".")[-1].upper(),
-                            "size": len(resp.text)
-                        })
-                except Exception:
-                    continue
+                file_contents = []
+                for i, f in enumerate(files):
+                    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{f['path']}"
+                    yield json.dumps({"type": "progress", "current": i + 1, "total": total, "file": f["path"], "phase": "indiriliyor"}) + "\n"
+                    try:
+                        resp = await client.get(raw_url, headers=headers)
+                        if resp.status_code == 200:
+                            file_contents.append({
+                                "path": f["path"],
+                                "code": resp.text,
+                                "language": f["path"].split(".")[-1].upper(),
+                                "size": len(resp.text)
+                            })
+                    except httpx.RequestError:
+                        continue
 
-            groups = group_files_by_context(file_contents)
-            analyzed = 0
+                if not file_contents:
+                    yield json.dumps({"type": "error", "message": "Hiçbir dosya indirilemedi. Bağlantınızı kontrol edip tekrar deneyin."}) + "\n"
+                    return
 
-            for group in groups:
-                if len(group) == 1:
-                    f = group[0]
-                    yield json.dumps({"type": "progress", "current": analyzed + 1, "total": len(file_contents), "file": f["path"], "phase": "analiz ediliyor"}) + "\n"
-                    result = analyze_code(f["code"], f["language"])
-                    yield json.dumps({"type": "result", "file": f["path"], "result": result}) + "\n"
-                    analyzed += 1
-                else:
-                    paths = ", ".join(g["path"] for g in group)
-                    yield json.dumps({"type": "progress", "current": analyzed + 1, "total": len(file_contents), "file": paths, "phase": "birlikte analiz ediliyor"}) + "\n"
-                    multi_result = analyze_multi(group)
-                    yield json.dumps({"type": "result", "file": f"📦 {group[0]['path']} + {len(group)-1} dosya", "result": multi_result}) + "\n"
+                groups = group_files_by_context(file_contents)
+                analyzed = 0
+
+                for group in groups:
+                    is_multi = len(group) > 1
+                    label = f"📦 {group[0]['path']} + {len(group)-1} dosya" if is_multi else group[0]["path"]
+                    phase = "birlikte analiz ediliyor" if is_multi else "analiz ediliyor"
+                    progress_file = ", ".join(g["path"] for g in group) if is_multi else group[0]["path"]
+
+                    yield json.dumps({"type": "progress", "current": analyzed + 1, "total": len(file_contents), "file": progress_file, "phase": phase}) + "\n"
+                    try:
+                        result = analyze_multi(group) if is_multi else analyze_code(group[0]["code"], group[0]["language"])
+                    except Exception as e:
+                        result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
+                    yield json.dumps({"type": "result", "file": label, "result": result}) + "\n"
                     analyzed += len(group)
 
-            yield json.dumps({"type": "done"}) + "\n"
+                yield json.dumps({"type": "done"}) + "\n"
+        except httpx.TimeoutException:
+            yield json.dumps({"type": "error", "message": "GitHub'a bağlanırken zaman aşımı oluştu. Tekrar deneyin."}) + "\n"
+        except httpx.RequestError as e:
+            yield json.dumps({"type": "error", "message": f"Bağlantı hatası: {e}"}) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 

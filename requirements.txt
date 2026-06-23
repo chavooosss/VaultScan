@@ -3,3 +3,7 @@ uvicorn
 anthropic
 python-dotenv
 httpx
+python-multipart
+pytest
+pytest-asyncio
+respx
