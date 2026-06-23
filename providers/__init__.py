@@ -21,7 +21,4 @@ def get_provider(name: str):
         raise ValueError(f"Bilinmeyen AI sağlayıcı: {name}")
     return module
 
-def is_configured(name: str) -> bool:
-    return get_provider(name).is_configured()
-
-__all__ = ["PROVIDERS", "PROVIDER_LABELS", "DEFAULT_PROVIDER", "get_provider", "is_configured", "ProviderNotConfigured"]
+__all__ = ["PROVIDERS", "PROVIDER_LABELS", "DEFAULT_PROVIDER", "get_provider", "ProviderNotConfigured"]

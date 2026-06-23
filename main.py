@@ -9,9 +9,9 @@ from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from analyzer import analyze_code_collab, analyze_multi_collab
-from providers import PROVIDERS, PROVIDER_LABELS, DEFAULT_PROVIDER, is_configured
+from providers import PROVIDERS, PROVIDER_LABELS, DEFAULT_PROVIDER
 from auth import oauth
-from db import init_db, get_db, get_or_create_user, User
+from db import init_db, get_db, get_or_create_user, get_user_api_key, set_user_api_key, clear_user_api_key, User
 from config import SESSION_SECRET
 import json
 
@@ -79,6 +79,10 @@ class GithubRequest(BaseModel):
     max_files: int = 20
     providers: list[str] = [DEFAULT_PROVIDER]
 
+class ApiKeyRequest(BaseModel):
+    provider: str
+    api_key: str
+
 def parse_github_url(url: str):
     url = url.strip().rstrip("/").replace(".git", "")
     pattern = r"github\.com/([^/]+)/([^/]+)"
@@ -87,44 +91,57 @@ def parse_github_url(url: str):
         return None, None
     return match.group(1), match.group(2)
 
-def validate_provider(provider: str) -> str | None:
+def get_current_user(http_request: Request, db: Session) -> User | None:
+    user_id = http_request.session.get("user_id")
+    if not user_id:
+        return None
+    return db.get(User, user_id)
+
+def validate_provider(provider: str, user: User) -> str | None:
     if provider not in PROVIDERS:
         return f"Bilinmeyen AI sağlayıcı: {provider}"
-    if not is_configured(provider):
+    if not get_user_api_key(user, provider):
         label = PROVIDER_LABELS.get(provider, provider)
-        return f"{label} için API key yapılandırılmamış. Lütfen başka bir AI seçin."
+        return f"{label} için kendi API key'inizi eklemediniz. Ayarlar sayfasından ekleyebilirsiniz."
     return None
 
-def validate_providers(providers: list[str]) -> str | None:
+def validate_providers(providers: list[str], user: User) -> str | None:
     if not providers:
         return "En az bir AI seçmelisiniz."
     for provider in providers:
-        error = validate_provider(provider)
+        error = validate_provider(provider, user)
         if error:
             return error
     return None
 
+def build_api_keys(providers: list[str], user: User) -> dict:
+    return {p: get_user_api_key(user, p) for p in providers}
+
 @app.post("/analyze")
 async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = Depends(get_db)):
-    if not http_request.session.get("user_id"):
+    user = get_current_user(http_request, db)
+    if user is None:
         return {"error": "Giriş yapmanız gerekiyor."}
-    error = validate_providers(request.providers)
+    error = validate_providers(request.providers, user)
     if error:
         return {"error": error}
+    api_keys = build_api_keys(request.providers, user)
     try:
-        result = await analyze_code_collab(request.code, request.language, request.providers)
+        result = await analyze_code_collab(request.code, request.language, request.providers, api_keys)
     except Exception as e:
         return {"error": f"Analiz hatası: {e}"}
     return {"result": result}
 
 @app.post("/upload")
 async def upload_file(http_request: Request, file: UploadFile = File(...), providers: str = Form(DEFAULT_PROVIDER), db: Session = Depends(get_db)):
-    if not http_request.session.get("user_id"):
+    user = get_current_user(http_request, db)
+    if user is None:
         return {"error": "Giriş yapmanız gerekiyor."}
     provider_list = [p.strip() for p in providers.split(",") if p.strip()]
-    error = validate_providers(provider_list)
+    error = validate_providers(provider_list, user)
     if error:
         return {"error": error}
+    api_keys = build_api_keys(provider_list, user)
 
     filename = file.filename or ""
     content = await file.read()
@@ -155,9 +172,9 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
             is_multi = len(group) > 1
             try:
                 if is_multi:
-                    result = await analyze_multi_collab(group, provider_list)
+                    result = await analyze_multi_collab(group, provider_list, api_keys)
                 else:
-                    result = await analyze_code_collab(group[0]['code'], group[0]['language'], provider_list)
+                    result = await analyze_code_collab(group[0]['code'], group[0]['language'], provider_list, api_keys)
             except Exception as e:
                 result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
 
@@ -177,22 +194,25 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
     code = content.decode("utf-8", errors="ignore")
     language = filename.split(".")[-1].upper() if "." in filename else "otomatik tespit"
     try:
-        result = await analyze_code_collab(code, language, provider_list)
+        result = await analyze_code_collab(code, language, provider_list, api_keys)
     except Exception as e:
         return {"error": f"Analiz hatası: {e}"}
     return {"type": "file", "result": result}
 
 @app.post("/github")
 async def analyze_github(request: GithubRequest, http_request: Request, db: Session = Depends(get_db)):
-    if not http_request.session.get("user_id"):
+    user = get_current_user(http_request, db)
+    if user is None:
         return {"error": "Giriş yapmanız gerekiyor."}
     owner, repo = parse_github_url(request.url)
     if not owner or not repo:
         return {"error": "Geçersiz GitHub URL'i."}
 
-    provider_error = validate_providers(request.providers)
+    provider_error = validate_providers(request.providers, user)
     if provider_error:
         return {"error": provider_error}
+
+    api_keys = build_api_keys(request.providers, user)
 
     headers = {"Accept": "application/vnd.github.v3+json"}
     if request.token:
@@ -271,9 +291,9 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
                     yield json.dumps({"type": "progress", "current": analyzed + 1, "total": len(file_contents), "file": progress_file, "phase": phase}) + "\n"
                     try:
                         if is_multi:
-                            result = await analyze_multi_collab(group, request.providers)
+                            result = await analyze_multi_collab(group, request.providers, api_keys)
                         else:
-                            result = await analyze_code_collab(group[0]["code"], group[0]["language"], request.providers)
+                            result = await analyze_code_collab(group[0]["code"], group[0]["language"], request.providers, api_keys)
                     except Exception as e:
                         result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
                     yield json.dumps({"type": "result", "file": label, "result": result}) + "\n"
@@ -325,6 +345,35 @@ async def me(request: Request, db: Session = Depends(get_db)):
         "name": request.session.get("user_name", ""),
         "picture": request.session.get("user_picture", ""),
     }
+
+@app.get("/api/keys")
+async def get_keys(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if user is None:
+        return {"error": "Giriş yapmanız gerekiyor."}
+    return {p: bool(get_user_api_key(user, p)) for p in PROVIDERS}
+
+@app.post("/api/keys")
+async def save_key(request: ApiKeyRequest, http_request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(http_request, db)
+    if user is None:
+        return {"error": "Giriş yapmanız gerekiyor."}
+    if request.provider not in PROVIDERS:
+        return {"error": f"Bilinmeyen AI sağlayıcı: {request.provider}"}
+    if not request.api_key.strip():
+        return {"error": "API key boş olamaz."}
+    set_user_api_key(db, user, request.provider, request.api_key.strip())
+    return {"ok": True}
+
+@app.delete("/api/keys/{provider}")
+async def delete_key(provider: str, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if user is None:
+        return {"error": "Giriş yapmanız gerekiyor."}
+    if provider not in PROVIDERS:
+        return {"error": f"Bilinmeyen AI sağlayıcı: {provider}"}
+    clear_user_api_key(db, user, provider)
+    return {"ok": True}
 
 @app.get("/")
 async def root(request: Request):

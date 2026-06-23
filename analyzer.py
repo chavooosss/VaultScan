@@ -1,11 +1,11 @@
 import asyncio
-from providers import get_provider, DEFAULT_PROVIDER, PROVIDER_LABELS
+from providers import get_provider, PROVIDER_LABELS
 
-def analyze_code(code: str, language: str = "otomatik tespit", provider: str = DEFAULT_PROVIDER) -> str:
-    return get_provider(provider).analyze_code(code, language)
+def analyze_code(code: str, language: str, provider: str, api_key: str) -> str:
+    return get_provider(provider).analyze_code(code, language, api_key)
 
-def analyze_multi(files: list, provider: str = DEFAULT_PROVIDER) -> str:
-    return get_provider(provider).analyze_multi(files)
+def analyze_multi(files: list, provider: str, api_key: str) -> str:
+    return get_provider(provider).analyze_multi(files, api_key)
 
 def _build_synthesis_input(per_provider_results: dict, language: str, failed: list) -> str:
     sections = "\n\n".join(
@@ -18,7 +18,7 @@ def _build_synthesis_input(per_provider_results: dict, language: str, failed: li
         note = f"\n\n(Not: {failed_labels} bu analize katılamadı.)"
     return f"Dil: {language}{note}\n\n{sections}"
 
-async def _run_collab(call_fn, providers: list, language: str) -> str:
+async def _run_collab(call_fn, providers: list, language: str, api_keys: dict) -> str:
     if len(providers) == 1:
         return call_fn(providers[0])
 
@@ -37,10 +37,11 @@ async def _run_collab(call_fn, providers: list, language: str) -> str:
         return next(iter(succeeded.values()))
 
     synthesizer = next(iter(succeeded))
-    return get_provider(synthesizer).synthesize(_build_synthesis_input(succeeded, language, failed))
+    synthesis_input = _build_synthesis_input(succeeded, language, failed)
+    return get_provider(synthesizer).synthesize(synthesis_input, api_keys[synthesizer])
 
-async def analyze_code_collab(code: str, language: str, providers: list) -> str:
-    return await _run_collab(lambda p: analyze_code(code, language, provider=p), providers, language)
+async def analyze_code_collab(code: str, language: str, providers: list, api_keys: dict) -> str:
+    return await _run_collab(lambda p: analyze_code(code, language, p, api_keys[p]), providers, language, api_keys)
 
-async def analyze_multi_collab(files: list, providers: list) -> str:
-    return await _run_collab(lambda p: analyze_multi(files, provider=p), providers, "otomatik tespit")
+async def analyze_multi_collab(files: list, providers: list, api_keys: dict) -> str:
+    return await _run_collab(lambda p: analyze_multi(files, p, api_keys[p]), providers, "otomatik tespit", api_keys)

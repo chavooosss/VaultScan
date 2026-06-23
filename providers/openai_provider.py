@@ -1,23 +1,15 @@
 from openai import OpenAI
-from config import OPENAI_API_KEY, OPENAI_MODEL, MAX_TOKENS
+from config import OPENAI_MODEL, MAX_TOKENS
 from prompts import SYSTEM_PROMPT, SYNTHESIS_PROMPT
 from providers.errors import ProviderNotConfigured
 
-_client = None
+def _client(api_key: str):
+    if not api_key:
+        raise ProviderNotConfigured("ChatGPT (OpenAI) için API key girilmemiş.")
+    return OpenAI(api_key=api_key)
 
-def _get_client():
-    global _client
-    if _client is None:
-        if not OPENAI_API_KEY:
-            raise ProviderNotConfigured("ChatGPT (OpenAI) için API key yapılandırılmamış.")
-        _client = OpenAI(api_key=OPENAI_API_KEY)
-    return _client
-
-def is_configured() -> bool:
-    return bool(OPENAI_API_KEY)
-
-def analyze_code(code: str, language: str = "otomatik tespit") -> str:
-    response = _get_client().chat.completions.create(
+def analyze_code(code: str, language: str, api_key: str) -> str:
+    response = _client(api_key).chat.completions.create(
         model=OPENAI_MODEL,
         max_completion_tokens=MAX_TOKENS,
         messages=[
@@ -27,8 +19,8 @@ def analyze_code(code: str, language: str = "otomatik tespit") -> str:
     )
     return response.choices[0].message.content
 
-def synthesize(content: str) -> str:
-    response = _get_client().chat.completions.create(
+def synthesize(content: str, api_key: str) -> str:
+    response = _client(api_key).chat.completions.create(
         model=OPENAI_MODEL,
         max_completion_tokens=MAX_TOKENS,
         messages=[
@@ -38,10 +30,10 @@ def synthesize(content: str) -> str:
     )
     return response.choices[0].message.content
 
-def analyze_multi(files: list) -> str:
+def analyze_multi(files: list, api_key: str) -> str:
     parts = [f"### {f['path']}\n```\n{f['code']}\n```" for f in files]
     content = "Aşağıdaki dosyalar birbiriyle ilişkili, birlikte analiz et:\n\n" + "\n\n".join(parts)
-    response = _get_client().chat.completions.create(
+    response = _client(api_key).chat.completions.create(
         model=OPENAI_MODEL,
         max_completion_tokens=MAX_TOKENS,
         messages=[
