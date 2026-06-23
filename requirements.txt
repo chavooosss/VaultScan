@@ -9,6 +9,7 @@ python-multipart
 authlib
 sqlalchemy
 itsdangerous
+cryptography
 pytest
 pytest-asyncio
 respx

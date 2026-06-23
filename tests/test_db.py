@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from db import Base, User, get_or_create_user
+from db import Base, User, get_or_create_user, set_user_api_key, get_user_api_key, clear_user_api_key
 
 
 def _make_session():
@@ -47,3 +47,43 @@ def test_different_google_ids_create_separate_users():
     get_or_create_user(db, google_id="g-2", email="c@d.com", name="Cem")
 
     assert db.query(User).count() == 2
+
+
+def test_user_has_no_api_key_by_default():
+    db = _make_session()
+    user = get_or_create_user(db, google_id="g-1", email="a@b.com", name="Ali")
+
+    assert get_user_api_key(user, "claude") is None
+
+
+def test_set_and_get_user_api_key_roundtrips():
+    db = _make_session()
+    user = get_or_create_user(db, google_id="g-1", email="a@b.com", name="Ali")
+
+    set_user_api_key(db, user, "claude", "sk-ant-secret-123")
+
+    assert get_user_api_key(user, "claude") == "sk-ant-secret-123"
+    assert user.anthropic_api_key_enc != "sk-ant-secret-123"
+
+
+def test_different_providers_store_independent_keys():
+    db = _make_session()
+    user = get_or_create_user(db, google_id="g-1", email="a@b.com", name="Ali")
+
+    set_user_api_key(db, user, "claude", "claude-key")
+    set_user_api_key(db, user, "chatgpt", "chatgpt-key")
+    set_user_api_key(db, user, "gemini", "gemini-key")
+
+    assert get_user_api_key(user, "claude") == "claude-key"
+    assert get_user_api_key(user, "chatgpt") == "chatgpt-key"
+    assert get_user_api_key(user, "gemini") == "gemini-key"
+
+
+def test_clear_user_api_key_removes_it():
+    db = _make_session()
+    user = get_or_create_user(db, google_id="g-1", email="a@b.com", name="Ali")
+    set_user_api_key(db, user, "claude", "claude-key")
+
+    clear_user_api_key(db, user, "claude")
+
+    assert get_user_api_key(user, "claude") is None
