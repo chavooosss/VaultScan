@@ -26,6 +26,10 @@ SUPPORTED_EXTENSIONS = {
     '.sql', '.html', '.css', '.sh', '.yaml', '.yml', '.json'
 }
 
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_ZIP_ENTRY_SIZE = 2 * 1024 * 1024  # 2 MB (zip bomb koruması)
+MAX_GITHUB_FILES = 50
+
 # Kritik dosya isimleri — önce bunlar analiz edilir
 PRIORITY_PATTERNS = [
     'main', 'app', 'index', 'server', 'auth', 'login', 'config',
@@ -147,14 +151,20 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
     filename = file.filename or ""
     content = await file.read()
 
+    if len(content) > MAX_UPLOAD_SIZE:
+        return {"error": f"Dosya çok büyük (maks {MAX_UPLOAD_SIZE // (1024*1024)} MB)."}
+
     if filename.endswith(".zip"):
         file_contents = []
         with zipfile.ZipFile(io.BytesIO(content)) as zf:
-            for name in zf.namelist():
+            for info in zf.infolist():
+                name = info.filename
                 ext = "." + name.split(".")[-1].lower() if "." in name else ""
                 if ext not in SUPPORTED_EXTENSIONS:
                     continue
                 if 'node_modules' in name or 'vendor' in name or '.min.' in name:
+                    continue
+                if info.file_size > MAX_ZIP_ENTRY_SIZE:
                     continue
                 try:
                     code = zf.read(name).decode("utf-8", errors="ignore")
@@ -250,7 +260,7 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
                 ]
 
                 files.sort(key=lambda f: score_file(f["path"]), reverse=True)
-                files = files[:request.max_files]
+                files = files[:max(1, min(request.max_files, MAX_GITHUB_FILES))]
 
                 if not files:
                     yield json.dumps({"type": "error", "message": "Desteklenen dosya bulunamadı."}) + "\n"

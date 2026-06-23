@@ -234,6 +234,30 @@ def test_upload_zip_processes_every_group_not_just_the_first():
     mock_single.assert_called_once()
 
 
+def test_upload_rejects_file_over_max_size():
+    big_content = b"x" * (10 * 1024 * 1024 + 1)
+    resp = client.post("/upload", files={"file": ("big.py", big_content, "text/x-python")})
+    assert resp.status_code == 200
+    assert "çok büyük" in resp.json()["error"]
+
+
+def test_upload_zip_skips_oversized_entry():
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("huge.py", "x = 1\n" * 400000)  # ~2.4 MB, MAX_ZIP_ENTRY_SIZE'ı aşar
+        zf.writestr("small.py", "print('hi')")
+    buf.seek(0)
+
+    with patch("main.analyze_code_collab", AsyncMock(return_value="<div>single</div>")) as mock_single:
+        resp = client.post("/upload", files={"file": ("project.zip", buf.getvalue(), "application/zip")})
+
+    data = resp.json()
+    assert data["type"] == "zip"
+    assert len(data["results"]) == 1
+    assert data["results"][0]["file"] == "small.py"
+    mock_single.assert_called_once()
+
+
 def test_github_endpoint_requires_login():
     anon_client = TestClient(app)
     resp = anon_client.post("/github", json={"url": "https://github.com/owner/repo"})
@@ -305,6 +329,22 @@ def test_github_happy_path_streams_progress_and_result():
     assert "result" in types
     assert types[-1] == "done"
     mock_analyze.assert_called_once_with("print('hello')", "PY", ["claude"], {"claude": CLAUDE_KEY})
+
+
+@respx.mock
+def test_github_max_files_is_clamped_to_upper_bound():
+    tree = {"tree": [{"path": f"f{i}.py", "type": "blob", "size": 100} for i in range(60)]}
+    respx.get("https://api.github.com/repos/owner/repo/git/trees/HEAD").mock(
+        return_value=httpx.Response(200, json=tree)
+    )
+    respx.get(url__regex=r"https://raw\.githubusercontent\.com/owner/repo/HEAD/f\d+\.py").mock(
+        return_value=httpx.Response(200, text="print('x')")
+    )
+
+    resp = client.post("/github", json={"url": "https://github.com/owner/repo", "max_files": 1000})
+    lines = [json.loads(l) for l in resp.text.strip().splitlines()]
+    start = next(l for l in lines if l["type"] == "start")
+    assert start["total"] == 50
 
 
 @respx.mock
