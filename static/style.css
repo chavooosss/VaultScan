@@ -92,15 +92,38 @@ body {
   font-size: 14px;
 }
 
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  align-self: center;
+}
+
 .tabs {
   display: inline-flex;
-  align-self: center;
   gap: 2px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 11px;
   padding: 3px;
 }
+
+.provider-select {
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 9px 14px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s var(--ease);
+}
+
+.provider-select:hover, .provider-select:focus { border-color: var(--border-strong); }
 
 .tab {
   background: transparent;

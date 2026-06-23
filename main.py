@@ -2,11 +2,12 @@ import zipfile
 import io
 import httpx
 import re
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from analyzer import analyze_code, analyze_multi
+from providers import PROVIDERS, PROVIDER_LABELS, DEFAULT_PROVIDER, is_configured
 import json
 
 app = FastAPI()
@@ -63,11 +64,13 @@ def group_files_by_context(files: list) -> list[list]:
 class AnalyzeRequest(BaseModel):
     code: str
     language: str = "otomatik tespit"
+    provider: str = DEFAULT_PROVIDER
 
 class GithubRequest(BaseModel):
     url: str
     token: str = ""
     max_files: int = 20
+    provider: str = DEFAULT_PROVIDER
 
 def parse_github_url(url: str):
     url = url.strip().rstrip("/").replace(".git", "")
@@ -77,13 +80,28 @@ def parse_github_url(url: str):
         return None, None
     return match.group(1), match.group(2)
 
+def validate_provider(provider: str) -> str | None:
+    if provider not in PROVIDERS:
+        return f"Bilinmeyen AI sağlayıcı: {provider}"
+    if not is_configured(provider):
+        label = PROVIDER_LABELS.get(provider, provider)
+        return f"{label} için API key yapılandırılmamış. Lütfen başka bir AI seçin."
+    return None
+
 @app.post("/analyze")
 async def analyze(request: AnalyzeRequest):
-    result = analyze_code(request.code, request.language)
+    error = validate_provider(request.provider)
+    if error:
+        return {"error": error}
+    result = analyze_code(request.code, request.language, provider=request.provider)
     return {"result": result}
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...), provider: str = Form(DEFAULT_PROVIDER)):
+    error = validate_provider(provider)
+    if error:
+        return {"error": error}
+
     filename = file.filename or ""
     content = await file.read()
 
@@ -111,10 +129,10 @@ async def upload_file(file: UploadFile = File(...)):
         results = []
         for group in groups:
             if len(group) == 1:
-                result = analyze_code(group[0]['code'], group[0]['language'])
+                result = analyze_code(group[0]['code'], group[0]['language'], provider=provider)
                 results.append({"file": group[0]['path'], "result": result})
             else:
-                multi_result = analyze_multi(group)
+                multi_result = analyze_multi(group, provider=provider)
                 for item in group:
                     results.append({"file": item['path'], "result": multi_result})
                 break
@@ -127,7 +145,7 @@ async def upload_file(file: UploadFile = File(...)):
 
     code = content.decode("utf-8", errors="ignore")
     language = filename.split(".")[-1].upper() if "." in filename else "otomatik tespit"
-    result = analyze_code(code, language)
+    result = analyze_code(code, language, provider=provider)
     return {"type": "file", "result": result}
 
 @app.post("/github")
@@ -135,6 +153,10 @@ async def analyze_github(request: GithubRequest):
     owner, repo = parse_github_url(request.url)
     if not owner or not repo:
         return {"error": "Geçersiz GitHub URL'i."}
+
+    provider_error = validate_provider(request.provider)
+    if provider_error:
+        return {"error": provider_error}
 
     headers = {"Accept": "application/vnd.github.v3+json"}
     if request.token:
@@ -212,7 +234,10 @@ async def analyze_github(request: GithubRequest):
 
                     yield json.dumps({"type": "progress", "current": analyzed + 1, "total": len(file_contents), "file": progress_file, "phase": phase}) + "\n"
                     try:
-                        result = analyze_multi(group) if is_multi else analyze_code(group[0]["code"], group[0]["language"])
+                        if is_multi:
+                            result = analyze_multi(group, provider=request.provider)
+                        else:
+                            result = analyze_code(group[0]["code"], group[0]["language"], provider=request.provider)
                     except Exception as e:
                         result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
                     yield json.dumps({"type": "result", "file": label, "result": result}) + "\n"

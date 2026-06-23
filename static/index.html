@@ -18,10 +18,17 @@
       <p>Kodunu yapıştır, dosya yükle veya GitHub repo analiz et</p>
     </div>
 
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('paste', this)">Kod Yapıştır</button>
-      <button class="tab" onclick="switchTab('file', this)">Dosya Yükle</button>
-      <button class="tab" onclick="switchTab('github', this)">GitHub</button>
+    <div class="toolbar">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('paste', this)">Kod Yapıştır</button>
+        <button class="tab" onclick="switchTab('file', this)">Dosya Yükle</button>
+        <button class="tab" onclick="switchTab('github', this)">GitHub</button>
+      </div>
+      <select id="providerSelect" class="provider-select" title="Analiz için AI seç">
+        <option value="claude">Claude</option>
+        <option value="chatgpt">ChatGPT</option>
+        <option value="gemini">Gemini</option>
+      </select>
     </div>
 
     <div class="editor">

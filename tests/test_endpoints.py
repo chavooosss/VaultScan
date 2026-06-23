@@ -17,17 +17,38 @@ def test_analyze_endpoint_returns_mocked_result():
         resp = client.post("/analyze", json={"code": "print(1)", "language": "Python"})
     assert resp.status_code == 200
     assert resp.json() == {"result": "<div>mocked</div>"}
-    mock_analyze.assert_called_once_with("print(1)", "Python")
+    mock_analyze.assert_called_once_with("print(1)", "Python", provider="claude")
 
 
 def test_analyze_endpoint_default_language():
     with patch("main.analyze_code", return_value="ok") as mock_analyze:
         client.post("/analyze", json={"code": "x = 1"})
-    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit")
+    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", provider="claude")
+
+
+def test_analyze_endpoint_unknown_provider_returns_error():
+    resp = client.post("/analyze", json={"code": "x = 1", "provider": "not-a-real-provider"})
+    assert resp.status_code == 200
+    assert "Bilinmeyen AI" in resp.json()["error"]
+
+
+def test_analyze_endpoint_unconfigured_provider_returns_friendly_error():
+    with patch("main.is_configured", return_value=False):
+        resp = client.post("/analyze", json={"code": "x = 1", "provider": "gemini"})
+    assert resp.status_code == 200
+    assert "yapılandırılmamış" in resp.json()["error"]
+
+
+def test_analyze_endpoint_explicit_provider_is_passed_through():
+    with patch("main.is_configured", return_value=True), \
+         patch("main.analyze_code", return_value="<div>gpt</div>") as mock_analyze:
+        resp = client.post("/analyze", json={"code": "x = 1", "provider": "chatgpt"})
+    assert resp.json() == {"result": "<div>gpt</div>"}
+    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", provider="chatgpt")
 
 
 def test_upload_single_file():
-    with patch("main.analyze_code", return_value="<div>single</div>"):
+    with patch("main.analyze_code", return_value="<div>single</div>") as mock_analyze:
         resp = client.post(
             "/upload",
             files={"file": ("app.py", b"print('hi')", "text/x-python")},
@@ -36,12 +57,24 @@ def test_upload_single_file():
     data = resp.json()
     assert data["type"] == "file"
     assert data["result"] == "<div>single</div>"
+    mock_analyze.assert_called_once_with("print('hi')", "PY", provider="claude")
 
 
 def test_upload_unsupported_extension():
     resp = client.post("/upload", files={"file": ("malware.exe", b"binary", "application/octet-stream")})
     assert resp.status_code == 200
     assert "error" in resp.json()
+
+
+def test_upload_unconfigured_provider_returns_friendly_error_before_parsing():
+    with patch("main.is_configured", return_value=False):
+        resp = client.post(
+            "/upload",
+            files={"file": ("app.py", b"print('hi')", "text/x-python")},
+            data={"provider": "gemini"},
+        )
+    assert resp.status_code == 200
+    assert "yapılandırılmamış" in resp.json()["error"]
 
 
 def test_upload_zip_multiple_small_files_analyzed_together():
@@ -59,13 +92,21 @@ def test_upload_zip_multiple_small_files_analyzed_together():
     assert data["type"] == "zip"
     assert len(data["results"]) == 2
     assert all(r["result"] == "<div>zip-result</div>" for r in data["results"])
-    mock_multi.assert_called_once()
+    assert mock_multi.call_args.kwargs == {"provider": "claude"}
+    assert len(mock_multi.call_args.args[0]) == 2
 
 
 def test_github_invalid_url_returns_error_without_streaming():
     resp = client.post("/github", json={"url": "not-a-github-url"})
     assert resp.status_code == 200
     assert resp.json() == {"error": "Geçersiz GitHub URL'i."}
+
+
+def test_github_unconfigured_provider_returns_error_without_streaming():
+    with patch("main.is_configured", return_value=False):
+        resp = client.post("/github", json={"url": "https://github.com/owner/repo", "provider": "gemini"})
+    assert resp.status_code == 200
+    assert "yapılandırılmamış" in resp.json()["error"]
 
 
 @respx.mock
@@ -110,7 +151,7 @@ def test_github_happy_path_streams_progress_and_result():
         return_value=httpx.Response(200, text="print('hello')")
     )
 
-    with patch("main.analyze_code", return_value="<div>found nothing</div>"):
+    with patch("main.analyze_code", return_value="<div>found nothing</div>") as mock_analyze:
         resp = client.post("/github", json={"url": "https://github.com/owner/repo"})
 
     lines = [json.loads(l) for l in resp.text.strip().splitlines()]
@@ -119,6 +160,7 @@ def test_github_happy_path_streams_progress_and_result():
     assert "progress" in types
     assert "result" in types
     assert types[-1] == "done"
+    mock_analyze.assert_called_once_with("print('hello')", "PY", provider="claude")
 
 
 @respx.mock

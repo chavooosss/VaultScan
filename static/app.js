@@ -72,6 +72,10 @@ function buildZipHtml(results) {
   ).join('');
 }
 
+function getSelectedProvider() {
+  return document.getElementById('providerSelect').value;
+}
+
 async function analyze() {
   const code = document.getElementById('code').value.trim();
   const language = document.getElementById('language').value;
@@ -86,9 +90,10 @@ async function analyze() {
     const response = await fetch('/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, language })
+      body: JSON.stringify({ code, language, provider: getSelectedProvider() })
     });
     const data = await response.json();
+    if (data.error) { setError(data.error); return; }
     setResult(data.result);
   } catch (err) {
     setError('Hata: ' + err.message);
@@ -109,6 +114,7 @@ async function uploadFile(input) {
 
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('provider', getSelectedProvider());
 
   try {
     const response = await fetch('/upload', { method: 'POST', body: formData });
@@ -141,7 +147,7 @@ async function analyzeGithub() {
     const response = await fetch('/github', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, token })
+      body: JSON.stringify({ url, token, provider: getSelectedProvider() })
     });
 
     const reader = response.body.getReader();
@@ -160,6 +166,12 @@ async function analyzeGithub() {
         if (!line.trim()) continue;
         try {
           const msg = JSON.parse(line);
+
+          if (msg.error) {
+            setError(msg.error);
+            btn.disabled = false;
+            return;
+          }
 
           if (msg.type === 'error') {
             setError(msg.message);
