@@ -1,5 +1,6 @@
 from unittest.mock import AsyncMock, patch
 
+from authlib.integrations.base_client.errors import OAuthError
 from fastapi.testclient import TestClient
 from starlette.responses import RedirectResponse
 
@@ -52,6 +53,14 @@ def test_callback_reuses_same_user_on_repeat_login():
     finally:
         db.close()
     assert count == 1
+
+
+def test_callback_handles_oauth_failure_without_crashing():
+    with patch("main.oauth.google.authorize_access_token", AsyncMock(side_effect=OAuthError("denied"))):
+        resp = client.get("/auth/google/callback", follow_redirects=False)
+
+    assert resp.status_code in (302, 307)
+    assert resp.headers["location"] == "/?login_error=1"
 
 
 def test_logout_clears_session_and_redirects_home():

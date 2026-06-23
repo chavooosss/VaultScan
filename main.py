@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from analyzer import analyze_code_collab, analyze_multi_collab
 from providers import PROVIDERS, PROVIDER_LABELS, DEFAULT_PROVIDER
+from authlib.integrations.base_client.errors import OAuthError
 from auth import oauth
 from db import init_db, get_db, get_or_create_user, get_user_api_key, set_user_api_key, clear_user_api_key, User
 from config import SESSION_SECRET
@@ -159,7 +160,7 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
                     code = zf.read(name).decode("utf-8", errors="ignore")
                     if not code.strip():
                         continue
-                    file_contents.append({"path": name, "code": code, "language": name.split(".")[-1].upper()})
+                    file_contents.append({"path": name, "code": code, "language": name.split(".")[-1].upper(), "size": len(code)})
                 except Exception:
                     continue
 
@@ -181,7 +182,6 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
             if is_multi:
                 for item in group:
                     results.append({"file": item['path'], "result": result})
-                break
             else:
                 results.append({"file": group[0]['path'], "result": result})
 
@@ -314,7 +314,10 @@ async def google_login(request: Request):
 
 @app.get("/auth/google/callback")
 async def google_callback(request: Request, db: Session = Depends(get_db)):
-    token = await oauth.google.authorize_access_token(request)
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except OAuthError:
+        return RedirectResponse(url="/?login_error=1")
     userinfo = token.get("userinfo") or await oauth.google.userinfo(token=token)
     user = get_or_create_user(
         db,

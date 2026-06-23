@@ -20,7 +20,7 @@ def _build_synthesis_input(per_provider_results: dict, language: str, failed: li
 
 async def _run_collab(call_fn, providers: list, language: str, api_keys: dict) -> str:
     if len(providers) == 1:
-        return call_fn(providers[0])
+        return await asyncio.to_thread(call_fn, providers[0])
 
     raw_results = await asyncio.gather(
         *(asyncio.to_thread(call_fn, p) for p in providers),
@@ -38,7 +38,9 @@ async def _run_collab(call_fn, providers: list, language: str, api_keys: dict) -
 
     synthesizer = next(iter(succeeded))
     synthesis_input = _build_synthesis_input(succeeded, language, failed)
-    return get_provider(synthesizer).synthesize(synthesis_input, api_keys[synthesizer])
+    return await asyncio.to_thread(
+        get_provider(synthesizer).synthesize, synthesis_input, api_keys[synthesizer]
+    )
 
 async def analyze_code_collab(code: str, language: str, providers: list, api_keys: dict) -> str:
     return await _run_collab(lambda p: analyze_code(code, language, p, api_keys[p]), providers, language, api_keys)

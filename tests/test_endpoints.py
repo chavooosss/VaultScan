@@ -211,6 +211,29 @@ def test_upload_zip_multiple_small_files_analyzed_together():
     assert len(mock_multi.call_args.args[0]) == 2
 
 
+def test_upload_zip_processes_every_group_not_just_the_first():
+    buf = io.BytesIO()
+    big_file = "print(1)\n" * 400  # ~3600 karakter, MAX_GROUP_SIZE=8000'in altında
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("a.py", big_file)
+        zf.writestr("b.py", big_file)
+        zf.writestr("c.py", big_file)
+    buf.seek(0)
+
+    with patch("main.analyze_multi_collab", AsyncMock(return_value="<div>multi</div>")) as mock_multi, \
+         patch("main.analyze_code_collab", AsyncMock(return_value="<div>single</div>")) as mock_single:
+        resp = client.post("/upload", files={"file": ("project.zip", buf.getvalue(), "application/zip")})
+
+    data = resp.json()
+    assert data["type"] == "zip"
+    # a.py + b.py ilk grupta (birlikte ~7200 karakter), c.py kendi grubunda
+    # önceden c.py'nin grubu hiç işlenmiyordu (break bug'ı)
+    assert len(data["results"]) == 3
+    assert {r["file"] for r in data["results"]} == {"a.py", "b.py", "c.py"}
+    mock_multi.assert_called_once()
+    mock_single.assert_called_once()
+
+
 def test_github_endpoint_requires_login():
     anon_client = TestClient(app)
     resp = anon_client.post("/github", json={"url": "https://github.com/owner/repo"})
