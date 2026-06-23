@@ -1,6 +1,6 @@
 from openai import OpenAI
 from config import OPENAI_API_KEY, OPENAI_MODEL, MAX_TOKENS
-from prompts import SYSTEM_PROMPT
+from prompts import SYSTEM_PROMPT, SYNTHESIS_PROMPT
 from providers.errors import ProviderNotConfigured
 
 _client = None
@@ -23,6 +23,17 @@ def analyze_code(code: str, language: str = "otomatik tespit") -> str:
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": f"Dil: {language}\n\nKod:\n```\n{code}\n```"}
+        ]
+    )
+    return response.choices[0].message.content
+
+def synthesize(content: str) -> str:
+    response = _get_client().chat.completions.create(
+        model=OPENAI_MODEL,
+        max_completion_tokens=MAX_TOKENS,
+        messages=[
+            {"role": "system", "content": SYNTHESIS_PROMPT},
+            {"role": "user", "content": content}
         ]
     )
     return response.choices[0].message.content

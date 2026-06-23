@@ -24,11 +24,11 @@
         <button class="tab" onclick="switchTab('file', this)">Dosya Yükle</button>
         <button class="tab" onclick="switchTab('github', this)">GitHub</button>
       </div>
-      <select id="providerSelect" class="provider-select" title="Analiz için AI seç">
-        <option value="claude">Claude</option>
-        <option value="chatgpt">ChatGPT</option>
-        <option value="gemini">Gemini</option>
-      </select>
+      <div class="provider-picker" id="providerPicker" title="Analiz için bir veya daha fazla AI seç">
+        <button type="button" class="provider-chip active" data-provider="claude" onclick="toggleProvider(this)">Claude</button>
+        <button type="button" class="provider-chip" data-provider="chatgpt" onclick="toggleProvider(this)">ChatGPT</button>
+        <button type="button" class="provider-chip" data-provider="gemini" onclick="toggleProvider(this)">Gemini</button>
+      </div>
     </div>
 
     <div class="editor">

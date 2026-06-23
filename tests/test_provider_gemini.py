@@ -48,6 +48,17 @@ def test_analyze_multi_combines_files_in_prompt():
     assert "print('a')" in content and "print('b')" in content
 
 
+def test_synthesize_uses_synthesis_prompt_as_system():
+    client = _mock_client("<div>synthesized</div>")
+    with patch.object(gemini_provider, "_get_client", return_value=client):
+        result = gemini_provider.synthesize("Claude analizi + ChatGPT analizi")
+
+    assert result == "<div>synthesized</div>"
+    kwargs = client.models.generate_content.call_args.kwargs
+    assert "Claude analizi" in kwargs["contents"]
+    assert kwargs["config"].system_instruction == gemini_provider.SYNTHESIS_PROMPT
+
+
 def test_missing_api_key_raises_provider_not_configured():
     with patch.object(gemini_provider, "GEMINI_API_KEY", ""), \
          patch.object(gemini_provider, "_client", None):

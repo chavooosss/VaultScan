@@ -1,6 +1,6 @@
 import anthropic
 from config import ANTHROPIC_API_KEY, MODEL, MAX_TOKENS
-from prompts import SYSTEM_PROMPT
+from prompts import SYSTEM_PROMPT, SYNTHESIS_PROMPT
 from providers.errors import ProviderNotConfigured
 
 _client = None
@@ -25,6 +25,20 @@ def analyze_code(code: str, language: str = "otomatik tespit") -> str:
             {
                 "role": "user",
                 "content": f"Dil: {language}\n\nKod:\n```\n{code}\n```"
+            }
+        ]
+    )
+    return message.content[0].text
+
+def synthesize(content: str) -> str:
+    message = _get_client().messages.create(
+        model=MODEL,
+        max_tokens=MAX_TOKENS,
+        system=SYNTHESIS_PROMPT,
+        messages=[
+            {
+                "role": "user",
+                "content": content
             }
         ]
     )

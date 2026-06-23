@@ -109,21 +109,31 @@ body {
   padding: 3px;
 }
 
-.provider-select {
+.provider-picker {
+  display: inline-flex;
+  gap: 2px;
   background: var(--bg-panel);
-  color: var(--text);
   border: 1px solid var(--border);
   border-radius: 11px;
-  padding: 9px 14px;
+  padding: 3px;
+}
+
+.provider-chip {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
   font-family: var(--font);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  outline: none;
-  transition: border-color 0.2s var(--ease);
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+  margin: 0;
 }
 
-.provider-select:hover, .provider-select:focus { border-color: var(--border-strong); }
+.provider-chip:hover { color: var(--text); }
+.provider-chip.active { background: var(--accent); color: #fff; }
 
 .tab {
   background: transparent;

@@ -50,6 +50,17 @@ def test_analyze_multi_combines_files_in_prompt():
     assert "print('a')" in content and "print('b')" in content
 
 
+def test_synthesize_uses_synthesis_prompt_as_system():
+    client = _mock_client("<div>synthesized</div>")
+    with patch.object(openai_provider, "_get_client", return_value=client):
+        result = openai_provider.synthesize("Claude analizi + Gemini analizi")
+
+    assert result == "<div>synthesized</div>"
+    kwargs = client.chat.completions.create.call_args.kwargs
+    assert kwargs["messages"][0] == {"role": "system", "content": openai_provider.SYNTHESIS_PROMPT}
+    assert "Claude analizi" in kwargs["messages"][1]["content"]
+
+
 def test_missing_api_key_raises_provider_not_configured():
     with patch.object(openai_provider, "OPENAI_API_KEY", ""), \
          patch.object(openai_provider, "_client", None):

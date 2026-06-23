@@ -6,7 +6,7 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
-from analyzer import analyze_code, analyze_multi
+from analyzer import analyze_code_collab, analyze_multi_collab
 from providers import PROVIDERS, PROVIDER_LABELS, DEFAULT_PROVIDER, is_configured
 import json
 
@@ -64,13 +64,13 @@ def group_files_by_context(files: list) -> list[list]:
 class AnalyzeRequest(BaseModel):
     code: str
     language: str = "otomatik tespit"
-    provider: str = DEFAULT_PROVIDER
+    providers: list[str] = [DEFAULT_PROVIDER]
 
 class GithubRequest(BaseModel):
     url: str
     token: str = ""
     max_files: int = 20
-    provider: str = DEFAULT_PROVIDER
+    providers: list[str] = [DEFAULT_PROVIDER]
 
 def parse_github_url(url: str):
     url = url.strip().rstrip("/").replace(".git", "")
@@ -88,17 +88,30 @@ def validate_provider(provider: str) -> str | None:
         return f"{label} için API key yapılandırılmamış. Lütfen başka bir AI seçin."
     return None
 
+def validate_providers(providers: list[str]) -> str | None:
+    if not providers:
+        return "En az bir AI seçmelisiniz."
+    for provider in providers:
+        error = validate_provider(provider)
+        if error:
+            return error
+    return None
+
 @app.post("/analyze")
 async def analyze(request: AnalyzeRequest):
-    error = validate_provider(request.provider)
+    error = validate_providers(request.providers)
     if error:
         return {"error": error}
-    result = analyze_code(request.code, request.language, provider=request.provider)
+    try:
+        result = await analyze_code_collab(request.code, request.language, request.providers)
+    except Exception as e:
+        return {"error": f"Analiz hatası: {e}"}
     return {"result": result}
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...), provider: str = Form(DEFAULT_PROVIDER)):
-    error = validate_provider(provider)
+async def upload_file(file: UploadFile = File(...), providers: str = Form(DEFAULT_PROVIDER)):
+    provider_list = [p.strip() for p in providers.split(",") if p.strip()]
+    error = validate_providers(provider_list)
     if error:
         return {"error": error}
 
@@ -128,14 +141,21 @@ async def upload_file(file: UploadFile = File(...), provider: str = Form(DEFAULT
         groups = group_files_by_context(file_contents)
         results = []
         for group in groups:
-            if len(group) == 1:
-                result = analyze_code(group[0]['code'], group[0]['language'], provider=provider)
-                results.append({"file": group[0]['path'], "result": result})
-            else:
-                multi_result = analyze_multi(group, provider=provider)
+            is_multi = len(group) > 1
+            try:
+                if is_multi:
+                    result = await analyze_multi_collab(group, provider_list)
+                else:
+                    result = await analyze_code_collab(group[0]['code'], group[0]['language'], provider_list)
+            except Exception as e:
+                result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
+
+            if is_multi:
                 for item in group:
-                    results.append({"file": item['path'], "result": multi_result})
+                    results.append({"file": item['path'], "result": result})
                 break
+            else:
+                results.append({"file": group[0]['path'], "result": result})
 
         return {"type": "zip", "results": results}
 
@@ -145,7 +165,10 @@ async def upload_file(file: UploadFile = File(...), provider: str = Form(DEFAULT
 
     code = content.decode("utf-8", errors="ignore")
     language = filename.split(".")[-1].upper() if "." in filename else "otomatik tespit"
-    result = analyze_code(code, language, provider=provider)
+    try:
+        result = await analyze_code_collab(code, language, provider_list)
+    except Exception as e:
+        return {"error": f"Analiz hatası: {e}"}
     return {"type": "file", "result": result}
 
 @app.post("/github")
@@ -154,7 +177,7 @@ async def analyze_github(request: GithubRequest):
     if not owner or not repo:
         return {"error": "Geçersiz GitHub URL'i."}
 
-    provider_error = validate_provider(request.provider)
+    provider_error = validate_providers(request.providers)
     if provider_error:
         return {"error": provider_error}
 
@@ -235,9 +258,9 @@ async def analyze_github(request: GithubRequest):
                     yield json.dumps({"type": "progress", "current": analyzed + 1, "total": len(file_contents), "file": progress_file, "phase": phase}) + "\n"
                     try:
                         if is_multi:
-                            result = analyze_multi(group, provider=request.provider)
+                            result = await analyze_multi_collab(group, request.providers)
                         else:
-                            result = analyze_code(group[0]["code"], group[0]["language"], provider=request.provider)
+                            result = await analyze_code_collab(group[0]["code"], group[0]["language"], request.providers)
                     except Exception as e:
                         result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
                     yield json.dumps({"type": "result", "file": label, "result": result}) + "\n"

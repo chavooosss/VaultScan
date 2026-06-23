@@ -72,8 +72,18 @@ function buildZipHtml(results) {
   ).join('');
 }
 
-function getSelectedProvider() {
-  return document.getElementById('providerSelect').value;
+function toggleProvider(el) {
+  const active = document.querySelectorAll('.provider-chip.active');
+  if (el.classList.contains('active')) {
+    if (active.length === 1) return;
+    el.classList.remove('active');
+  } else {
+    el.classList.add('active');
+  }
+}
+
+function getSelectedProviders() {
+  return Array.from(document.querySelectorAll('.provider-chip.active')).map(el => el.dataset.provider);
 }
 
 async function analyze() {
@@ -90,7 +100,7 @@ async function analyze() {
     const response = await fetch('/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, language, provider: getSelectedProvider() })
+      body: JSON.stringify({ code, language, providers: getSelectedProviders() })
     });
     const data = await response.json();
     if (data.error) { setError(data.error); return; }
@@ -114,7 +124,7 @@ async function uploadFile(input) {
 
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('provider', getSelectedProvider());
+  formData.append('providers', getSelectedProviders().join(','));
 
   try {
     const response = await fetch('/upload', { method: 'POST', body: formData });
@@ -147,7 +157,7 @@ async function analyzeGithub() {
     const response = await fetch('/github', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, token, provider: getSelectedProvider() })
+      body: JSON.stringify({ url, token, providers: getSelectedProviders() })
     });
 
     const reader = response.body.getReader();

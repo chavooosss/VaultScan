@@ -1,7 +1,7 @@
 import io
 import json
 import zipfile
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import respx
@@ -13,42 +13,63 @@ client = TestClient(app)
 
 
 def test_analyze_endpoint_returns_mocked_result():
-    with patch("main.analyze_code", return_value="<div>mocked</div>") as mock_analyze:
+    with patch("main.analyze_code_collab", AsyncMock(return_value="<div>mocked</div>")) as mock_analyze:
         resp = client.post("/analyze", json={"code": "print(1)", "language": "Python"})
     assert resp.status_code == 200
     assert resp.json() == {"result": "<div>mocked</div>"}
-    mock_analyze.assert_called_once_with("print(1)", "Python", provider="claude")
+    mock_analyze.assert_called_once_with("print(1)", "Python", ["claude"])
 
 
 def test_analyze_endpoint_default_language():
-    with patch("main.analyze_code", return_value="ok") as mock_analyze:
+    with patch("main.analyze_code_collab", AsyncMock(return_value="ok")) as mock_analyze:
         client.post("/analyze", json={"code": "x = 1"})
-    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", provider="claude")
+    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", ["claude"])
 
 
 def test_analyze_endpoint_unknown_provider_returns_error():
-    resp = client.post("/analyze", json={"code": "x = 1", "provider": "not-a-real-provider"})
+    resp = client.post("/analyze", json={"code": "x = 1", "providers": ["not-a-real-provider"]})
     assert resp.status_code == 200
     assert "Bilinmeyen AI" in resp.json()["error"]
 
 
+def test_analyze_endpoint_empty_providers_returns_error():
+    resp = client.post("/analyze", json={"code": "x = 1", "providers": []})
+    assert resp.status_code == 200
+    assert "En az bir AI" in resp.json()["error"]
+
+
 def test_analyze_endpoint_unconfigured_provider_returns_friendly_error():
     with patch("main.is_configured", return_value=False):
-        resp = client.post("/analyze", json={"code": "x = 1", "provider": "gemini"})
+        resp = client.post("/analyze", json={"code": "x = 1", "providers": ["gemini"]})
     assert resp.status_code == 200
     assert "yapılandırılmamış" in resp.json()["error"]
 
 
-def test_analyze_endpoint_explicit_provider_is_passed_through():
+def test_analyze_endpoint_explicit_providers_passed_through():
     with patch("main.is_configured", return_value=True), \
-         patch("main.analyze_code", return_value="<div>gpt</div>") as mock_analyze:
-        resp = client.post("/analyze", json={"code": "x = 1", "provider": "chatgpt"})
+         patch("main.analyze_code_collab", AsyncMock(return_value="<div>gpt</div>")) as mock_analyze:
+        resp = client.post("/analyze", json={"code": "x = 1", "providers": ["chatgpt"]})
     assert resp.json() == {"result": "<div>gpt</div>"}
-    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", provider="chatgpt")
+    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", ["chatgpt"])
+
+
+def test_analyze_endpoint_multi_provider_list_passed_through():
+    with patch("main.is_configured", return_value=True), \
+         patch("main.analyze_code_collab", AsyncMock(return_value="<div>merged</div>")) as mock_analyze:
+        resp = client.post("/analyze", json={"code": "x = 1", "providers": ["claude", "chatgpt", "gemini"]})
+    assert resp.json() == {"result": "<div>merged</div>"}
+    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", ["claude", "chatgpt", "gemini"])
+
+
+def test_analyze_endpoint_collab_exception_returns_friendly_error():
+    with patch("main.analyze_code_collab", AsyncMock(side_effect=RuntimeError("Hiçbir AI analizi tamamlayamadı."))):
+        resp = client.post("/analyze", json={"code": "x = 1"})
+    assert resp.status_code == 200
+    assert "Analiz hatası" in resp.json()["error"]
 
 
 def test_upload_single_file():
-    with patch("main.analyze_code", return_value="<div>single</div>") as mock_analyze:
+    with patch("main.analyze_code_collab", AsyncMock(return_value="<div>single</div>")) as mock_analyze:
         resp = client.post(
             "/upload",
             files={"file": ("app.py", b"print('hi')", "text/x-python")},
@@ -57,7 +78,7 @@ def test_upload_single_file():
     data = resp.json()
     assert data["type"] == "file"
     assert data["result"] == "<div>single</div>"
-    mock_analyze.assert_called_once_with("print('hi')", "PY", provider="claude")
+    mock_analyze.assert_called_once_with("print('hi')", "PY", ["claude"])
 
 
 def test_upload_unsupported_extension():
@@ -71,10 +92,22 @@ def test_upload_unconfigured_provider_returns_friendly_error_before_parsing():
         resp = client.post(
             "/upload",
             files={"file": ("app.py", b"print('hi')", "text/x-python")},
-            data={"provider": "gemini"},
+            data={"providers": "gemini"},
         )
     assert resp.status_code == 200
     assert "yapılandırılmamış" in resp.json()["error"]
+
+
+def test_upload_comma_separated_providers_parsed_into_list():
+    with patch("main.is_configured", return_value=True), \
+         patch("main.analyze_code_collab", AsyncMock(return_value="<div>multi-ai</div>")) as mock_analyze:
+        resp = client.post(
+            "/upload",
+            files={"file": ("app.py", b"print('hi')", "text/x-python")},
+            data={"providers": "claude, chatgpt"},
+        )
+    assert resp.json()["result"] == "<div>multi-ai</div>"
+    mock_analyze.assert_called_once_with("print('hi')", "PY", ["claude", "chatgpt"])
 
 
 def test_upload_zip_multiple_small_files_analyzed_together():
@@ -84,7 +117,7 @@ def test_upload_zip_multiple_small_files_analyzed_together():
         zf.writestr("utils.py", "print('b')")
     buf.seek(0)
 
-    with patch("main.analyze_multi", return_value="<div>zip-result</div>") as mock_multi:
+    with patch("main.analyze_multi_collab", AsyncMock(return_value="<div>zip-result</div>")) as mock_multi:
         resp = client.post("/upload", files={"file": ("project.zip", buf.getvalue(), "application/zip")})
 
     assert resp.status_code == 200
@@ -92,7 +125,7 @@ def test_upload_zip_multiple_small_files_analyzed_together():
     assert data["type"] == "zip"
     assert len(data["results"]) == 2
     assert all(r["result"] == "<div>zip-result</div>" for r in data["results"])
-    assert mock_multi.call_args.kwargs == {"provider": "claude"}
+    assert mock_multi.call_args.args[1] == ["claude"]
     assert len(mock_multi.call_args.args[0]) == 2
 
 
@@ -104,7 +137,7 @@ def test_github_invalid_url_returns_error_without_streaming():
 
 def test_github_unconfigured_provider_returns_error_without_streaming():
     with patch("main.is_configured", return_value=False):
-        resp = client.post("/github", json={"url": "https://github.com/owner/repo", "provider": "gemini"})
+        resp = client.post("/github", json={"url": "https://github.com/owner/repo", "providers": ["gemini"]})
     assert resp.status_code == 200
     assert "yapılandırılmamış" in resp.json()["error"]
 
@@ -151,7 +184,7 @@ def test_github_happy_path_streams_progress_and_result():
         return_value=httpx.Response(200, text="print('hello')")
     )
 
-    with patch("main.analyze_code", return_value="<div>found nothing</div>") as mock_analyze:
+    with patch("main.analyze_code_collab", AsyncMock(return_value="<div>found nothing</div>")) as mock_analyze:
         resp = client.post("/github", json={"url": "https://github.com/owner/repo"})
 
     lines = [json.loads(l) for l in resp.text.strip().splitlines()]
@@ -160,7 +193,26 @@ def test_github_happy_path_streams_progress_and_result():
     assert "progress" in types
     assert "result" in types
     assert types[-1] == "done"
-    mock_analyze.assert_called_once_with("print('hello')", "PY", provider="claude")
+    mock_analyze.assert_called_once_with("print('hello')", "PY", ["claude"])
+
+
+@respx.mock
+def test_github_multi_provider_selection_is_passed_to_collab():
+    tree = {"tree": [{"path": "main.py", "type": "blob", "size": 100}]}
+    respx.get("https://api.github.com/repos/owner/repo/git/trees/HEAD").mock(
+        return_value=httpx.Response(200, json=tree)
+    )
+    respx.get("https://raw.githubusercontent.com/owner/repo/HEAD/main.py").mock(
+        return_value=httpx.Response(200, text="print('hello')")
+    )
+
+    with patch("main.is_configured", return_value=True), \
+         patch("main.analyze_code_collab", AsyncMock(return_value="<div>merged</div>")) as mock_analyze:
+        resp = client.post("/github", json={"url": "https://github.com/owner/repo", "providers": ["claude", "gemini"]})
+
+    lines = [json.loads(l) for l in resp.text.strip().splitlines()]
+    assert any(l["type"] == "result" and l["result"] == "<div>merged</div>" for l in lines)
+    mock_analyze.assert_called_once_with("print('hello')", "PY", ["claude", "gemini"])
 
 
 @respx.mock

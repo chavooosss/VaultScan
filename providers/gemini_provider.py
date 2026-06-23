@@ -1,7 +1,7 @@
 from google import genai
 from google.genai import types
 from config import GEMINI_API_KEY, GEMINI_MODEL, MAX_TOKENS
-from prompts import SYSTEM_PROMPT
+from prompts import SYSTEM_PROMPT, SYNTHESIS_PROMPT
 from providers.errors import ProviderNotConfigured
 
 _client = None
@@ -38,5 +38,16 @@ def analyze_multi(files: list) -> str:
         model=GEMINI_MODEL,
         contents=content,
         config=_config(),
+    )
+    return response.text
+
+def synthesize(content: str) -> str:
+    response = _get_client().models.generate_content(
+        model=GEMINI_MODEL,
+        contents=content,
+        config=types.GenerateContentConfig(
+            system_instruction=SYNTHESIS_PROMPT,
+            max_output_tokens=MAX_TOKENS,
+        ),
     )
     return response.text
