@@ -14,6 +14,19 @@ async function loadUserInfo() {
 
 loadUserInfo();
 
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sanitizeAiHtml(html) {
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS: ['div', 'span', 'p', 'strong'], ALLOWED_ATTR: ['class'] });
+}
+
 function countSeverities(html) {
   const counts = { critical: 0, high: 0, medium: 0, low: 0 };
   const regex = /badge-(critical|high|medium|low)\b/g;
@@ -70,21 +83,21 @@ function setLoading(msg) {
 }
 
 function setResult(html) {
-  document.getElementById('result').innerHTML = summaryBarHtml(html) + html;
+  document.getElementById('result').innerHTML = summaryBarHtml(html) + sanitizeAiHtml(html);
   showExportButtons();
   document.getElementById('status').className = 'status-done';
   document.getElementById('status').textContent = '✓ Tamamlandı';
 }
 
 function setError(msg) {
-  document.getElementById('result').innerHTML = `<p class="error-text">${msg}</p>`;
+  document.getElementById('result').innerHTML = `<p class="error-text">${escapeHtml(msg)}</p>`;
   document.getElementById('status').className = 'status-error';
   document.getElementById('status').textContent = '✗ Hata';
 }
 
 function buildZipHtml(results) {
   return results.map(r =>
-    `<div class="file-section"><div class="file-name">📄 ${r.file}</div>${r.result}</div>`
+    `<div class="file-section"><div class="file-name">📄 ${escapeHtml(r.file)}</div>${sanitizeAiHtml(r.result)}</div>`
   ).join('');
 }
 
@@ -133,7 +146,7 @@ async function uploadFile(input) {
   if (!file) return;
 
   const uploadArea = document.getElementById('uploadArea');
-  uploadArea.innerHTML = `<div class="upload-icon">📄</div><p>${file.name}</p><p class="hint" style="margin-top:4px">${(file.size/1024).toFixed(1)} KB</p>`;
+  uploadArea.innerHTML = `<div class="upload-icon">📄</div><p>${escapeHtml(file.name)}</p><p class="hint" style="margin-top:4px">${(file.size/1024).toFixed(1)} KB</p>`;
   document.getElementById('uploadBtn').style.display = 'block';
 
   setLoading('Dosya analiz ediliyor...');
@@ -239,7 +252,7 @@ async function analyzeGithub() {
             results.push(msg);
             const container = document.getElementById('resultsContainer');
             if (container) {
-              container.innerHTML += `<div class="file-section"><div class="file-name">📄 ${msg.file}</div>${msg.result}</div>`;
+              container.innerHTML += `<div class="file-section"><div class="file-name">📄 ${escapeHtml(msg.file)}</div>${sanitizeAiHtml(msg.result)}</div>`;
             }
             const summaryBar = document.getElementById('summaryBar');
             if (summaryBar) summaryBar.innerHTML = summaryPillsHtml(countSeverities(container.innerHTML));
