@@ -9,15 +9,6 @@ async function loadUserInfo() {
       avatar.src = data.picture;
       avatar.style.display = 'inline-block';
     }
-    const badge = document.getElementById('quotaBadge');
-    if (data.plan === 'premium') {
-      badge.textContent = '✦ Premium';
-      badge.className = 'quota-badge quota-premium';
-    } else {
-      badge.textContent = `${data.remaining_quota}/${data.monthly_quota} ücretsiz analiz`;
-      badge.className = 'quota-badge' + (data.remaining_quota === 0 ? ' quota-empty' : '');
-    }
-    badge.style.display = 'inline-block';
   } catch (e) { /* sessiz geç */ }
 }
 
@@ -83,7 +74,6 @@ function setResult(html) {
   showExportButtons();
   document.getElementById('status').className = 'status-done';
   document.getElementById('status').textContent = '✓ Tamamlandı';
-  loadUserInfo();
 }
 
 function setError(msg) {
@@ -261,7 +251,6 @@ async function analyzeGithub() {
             showExportButtons();
             document.getElementById('status').className = 'status-done';
             document.getElementById('status').textContent = '✓ Tamamlandı';
-            loadUserInfo();
           }
 
         } catch (e) { /* json parse hatası */ }

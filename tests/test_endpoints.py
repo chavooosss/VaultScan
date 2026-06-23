@@ -1,7 +1,6 @@
 import io
 import json
 import zipfile
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -10,7 +9,6 @@ import respx
 from fastapi.testclient import TestClient
 
 from main import app
-from db import SessionLocal, User, FREE_MONTHLY_QUOTA
 
 client = TestClient(app)
 
@@ -25,13 +23,6 @@ def _logged_in():
     }}
     with patch("main.oauth.google.authorize_access_token", AsyncMock(return_value=fake_token)):
         client.get("/auth/google/callback")
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.google_id == "test-google-id").one()
-        user.plan = "premium"
-        db.commit()
-    finally:
-        db.close()
 
 
 def test_analyze_endpoint_requires_login():
@@ -110,30 +101,6 @@ def test_analyze_endpoint_collab_exception_returns_friendly_error():
     assert resp.status_code == 200
     assert "Analiz hatası" in resp.json()["error"]
 
-
-def test_analyze_endpoint_blocks_free_user_over_monthly_quota():
-    quota_client = TestClient(app)
-    fake_token = {"access_token": "fake", "userinfo": {
-        "sub": "quota-test-google-id",
-        "email": "quota@example.com",
-        "name": "Quota Tester",
-        "picture": "",
-    }}
-    with patch("main.oauth.google.authorize_access_token", AsyncMock(return_value=fake_token)):
-        quota_client.get("/auth/google/callback")
-
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.google_id == "quota-test-google-id").one()
-        user.analyses_this_month = FREE_MONTHLY_QUOTA
-        user.month_reset_at = datetime.now(timezone.utc)
-        db.commit()
-    finally:
-        db.close()
-
-    resp = quota_client.post("/analyze", json={"code": "x = 1"})
-    assert resp.status_code == 200
-    assert "ücretsiz analiz hakkınız" in resp.json()["error"]
 
 
 def test_upload_single_file():

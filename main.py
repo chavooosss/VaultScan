@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from analyzer import analyze_code_collab, analyze_multi_collab
 from providers import PROVIDERS, PROVIDER_LABELS, DEFAULT_PROVIDER, is_configured
 from auth import oauth
-from db import init_db, get_db, get_or_create_user, check_and_increment_quota, remaining_quota, User, FREE_MONTHLY_QUOTA
+from db import init_db, get_db, get_or_create_user, User
 from config import SESSION_SECRET
 import json
 
@@ -104,16 +104,6 @@ def validate_providers(providers: list[str]) -> str | None:
             return error
     return None
 
-QUOTA_EXCEEDED_MESSAGE = f"Aylık ücretsiz analiz hakkınız ({FREE_MONTHLY_QUOTA}) doldu. Daha fazla analiz için premium'a yükseltmeniz gerekiyor."
-
-def consume_quota(http_request: Request, db: Session) -> str | None:
-    user = db.get(User, http_request.session.get("user_id"))
-    if user is None:
-        return "Giriş yapmanız gerekiyor."
-    if not check_and_increment_quota(db, user):
-        return QUOTA_EXCEEDED_MESSAGE
-    return None
-
 @app.post("/analyze")
 async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = Depends(get_db)):
     if not http_request.session.get("user_id"):
@@ -121,9 +111,6 @@ async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = 
     error = validate_providers(request.providers)
     if error:
         return {"error": error}
-    quota_error = consume_quota(http_request, db)
-    if quota_error:
-        return {"error": quota_error}
     try:
         result = await analyze_code_collab(request.code, request.language, request.providers)
     except Exception as e:
@@ -138,9 +125,6 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
     error = validate_providers(provider_list)
     if error:
         return {"error": error}
-    quota_error = consume_quota(http_request, db)
-    if quota_error:
-        return {"error": quota_error}
 
     filename = file.filename or ""
     content = await file.read()
@@ -209,10 +193,6 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
     provider_error = validate_providers(request.providers)
     if provider_error:
         return {"error": provider_error}
-
-    quota_error = consume_quota(http_request, db)
-    if quota_error:
-        return {"error": quota_error}
 
     headers = {"Accept": "application/vnd.github.v3+json"}
     if request.token:
@@ -344,9 +324,6 @@ async def me(request: Request, db: Session = Depends(get_db)):
         "authenticated": True,
         "name": request.session.get("user_name", ""),
         "picture": request.session.get("user_picture", ""),
-        "plan": user.plan,
-        "remaining_quota": remaining_quota(user),
-        "monthly_quota": FREE_MONTHLY_QUOTA,
     }
 
 @app.get("/")
