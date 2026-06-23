@@ -567,6 +567,99 @@ button:disabled { background: var(--bg-elevated); color: var(--text-tertiary); c
 .google-btn:hover { opacity: 0.88; }
 .google-btn svg { width: 18px; height: 18px; }
 
+.settings-container {
+  height: auto;
+  min-height: 100vh;
+  overflow-y: auto;
+  max-width: 640px;
+}
+
+.back-link {
+  color: var(--text-tertiary);
+  text-decoration: none;
+  font-size: 13px;
+  align-self: flex-start;
+  transition: color 0.2s var(--ease);
+}
+
+.back-link:hover { color: var(--text); }
+
+.key-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.key-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+}
+
+.key-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.key-name { font-weight: 600; font-size: 14px; }
+
+.key-status {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border);
+}
+
+.key-status-set {
+  background: rgba(48,209,88,0.1);
+  color: var(--low);
+  border-color: rgba(48,209,88,0.35);
+}
+
+.key-note {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+.key-note a { color: var(--info); text-decoration: none; }
+.key-note a:hover { text-decoration: underline; }
+
+.key-form {
+  display: flex;
+  gap: 8px;
+}
+
+.key-input { flex: 1; }
+
+.key-save-btn, .key-remove-btn {
+  margin: 0;
+  padding: 10px 16px;
+  font-size: 13px;
+}
+
+.key-remove-btn {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.key-remove-btn:hover { background: var(--bg-hover); color: var(--critical); border-color: rgba(255,95,87,0.35); }
+
+.settings-status {
+  font-size: 13px;
+  min-height: 18px;
+}
+
+.settings-status-ok { color: var(--low); }
+.settings-status-error { color: var(--critical); }
+
 @media (max-width: 900px) {
   .editor { flex-direction: column; overflow: visible; }
   .container { height: auto; min-height: 100vh; overflow-y: auto; }

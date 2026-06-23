@@ -68,6 +68,20 @@ def test_root_serves_app_when_authenticated():
     assert "providerPicker" in resp.text
 
 
+def test_settings_page_requires_login():
+    anon_client = TestClient(app)
+    resp = anon_client.get("/settings")
+    assert resp.status_code == 200
+    assert "Google ile Giriş Yap" in resp.text
+
+
+def test_settings_page_serves_when_authenticated():
+    resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert "API Key" in resp.text
+    assert "key-card" in resp.text
+
+
 def test_analyze_endpoint_returns_mocked_result():
     with patch("main.analyze_code_collab", AsyncMock(return_value="<div>mocked</div>")) as mock_analyze:
         resp = client.post("/analyze", json={"code": "print(1)", "language": "Python"})

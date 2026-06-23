@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VaultScan — Ayarlar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="settings-body">
+  <div class="container settings-container">
+    <div class="user-bar" id="userBar">
+      <img id="userAvatar" class="user-avatar" src="" alt="" style="display:none">
+      <span id="userName" class="user-name"></span>
+      <a href="/auth/logout" class="logout-link">Çıkış</a>
+    </div>
+
+    <div class="header">
+      <span class="eyebrow"><span class="dot"></span>Ayarlar</span>
+      <h1>API Key'lerin</h1>
+      <p>VaultScan analiz yaparken senin kendi API key'ini kullanır — hiçbir AI sağlayıcısına biz ödeme yapmıyoruz, key'ler şifreli saklanır.</p>
+    </div>
+
+    <a href="/" class="back-link">← Analiz sayfasına dön</a>
+
+    <div class="key-list">
+      <div class="key-card" data-provider="claude">
+        <div class="key-card-header">
+          <span class="key-name">Claude (Anthropic)</span>
+          <span class="key-status" data-status>Yükleniyor...</span>
+        </div>
+        <p class="key-note">Ücretli bir key gerekir. <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> üzerinden alabilirsin.</p>
+        <div class="key-form">
+          <input type="password" class="inp key-input" placeholder="sk-ant-..." autocomplete="off">
+          <button type="button" class="key-save-btn">Kaydet</button>
+          <button type="button" class="key-remove-btn" style="display:none">Kaldır</button>
+        </div>
+      </div>
+
+      <div class="key-card" data-provider="chatgpt">
+        <div class="key-card-header">
+          <span class="key-name">ChatGPT (OpenAI)</span>
+          <span class="key-status" data-status>Yükleniyor...</span>
+        </div>
+        <p class="key-note">Genelde küçük bir ücretsiz kredi ile başlar. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a> üzerinden alabilirsin.</p>
+        <div class="key-form">
+          <input type="password" class="inp key-input" placeholder="sk-..." autocomplete="off">
+          <button type="button" class="key-save-btn">Kaydet</button>
+          <button type="button" class="key-remove-btn" style="display:none">Kaldır</button>
+        </div>
+      </div>
+
+      <div class="key-card" data-provider="gemini">
+        <div class="key-card-header">
+          <span class="key-name">Gemini (Google)</span>
+          <span class="key-status" data-status>Yükleniyor...</span>
+        </div>
+        <p class="key-note">Ücretsiz API key alabilirsin. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a> üzerinden alabilirsin.</p>
+        <div class="key-form">
+          <input type="password" class="inp key-input" placeholder="AIza..." autocomplete="off">
+          <button type="button" class="key-save-btn">Kaydet</button>
+          <button type="button" class="key-remove-btn" style="display:none">Kaldır</button>
+        </div>
+      </div>
+    </div>
+
+    <p id="settingsStatus" class="settings-status"></p>
+  </div>
+  <script src="/static/settings.js"></script>
+</body>
+</html>

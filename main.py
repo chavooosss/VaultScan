@@ -381,4 +381,10 @@ async def root(request: Request):
         return FileResponse("static/login.html")
     return FileResponse("static/index.html")
 
+@app.get("/settings")
+async def settings_page(request: Request):
+    if not request.session.get("user_id"):
+        return FileResponse("static/login.html")
+    return FileResponse("static/settings.html")
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
