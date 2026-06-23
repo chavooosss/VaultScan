@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VaultScan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span class="eyebrow"><span class="dot"></span>Güvenlik Analiz Aracı</span>
+      <h1>VaultScan</h1>
+      <p>Kodunu yapıştır, dosya yükle veya GitHub repo analiz et</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('paste', this)">Kod Yapıştır</button>
+      <button class="tab" onclick="switchTab('file', this)">Dosya Yükle</button>
+      <button class="tab" onclick="switchTab('github', this)">GitHub</button>
+    </div>
+
+    <div class="editor">
+      <!-- Kod Yapıştır -->
+      <div class="panel" id="pastePanel">
+        <div class="panel-header">
+          <span>Kod</span>
+          <select id="language">
+            <option value="otomatik tespit">Otomatik Tespit</option>
+            <option value="Python">Python</option>
+            <option value="JavaScript">JavaScript</option>
+            <option value="TypeScript">TypeScript</option>
+            <option value="PHP">PHP</option>
+            <option value="Java">Java</option>
+            <option value="Go">Go</option>
+            <option value="Rust">Rust</option>
+            <option value="SQL">SQL</option>
+          </select>
+        </div>
+        <textarea id="code" placeholder="Kodunu buraya yapıştır..."></textarea>
+        <button id="analyzeBtn" onclick="analyze()">Analiz Et</button>
+      </div>
+
+      <!-- Dosya Yükle -->
+      <div class="panel" id="filePanel" style="display:none">
+        <div class="panel-header">
+          <span>Dosya Yükle</span>
+          <span class="hint">.py .js .ts .php .java .go .rs .zip ...</span>
+        </div>
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-icon">📁</div>
+          <p>Dosyayı buraya sürükle veya tıkla</p>
+          <p class="hint" style="margin-top:4px">ZIP dosyası ile birden fazla dosya analiz edebilirsin</p>
+          <input type="file" id="fileInput" style="display:none" onchange="uploadFile(this)" accept=".py,.js,.ts,.php,.java,.go,.rs,.c,.cpp,.h,.cs,.rb,.swift,.kt,.sql,.html,.css,.sh,.yaml,.yml,.json,.zip">
+        </div>
+        <button id="uploadBtn" style="display:none" onclick="document.getElementById('fileInput').click()">Farklı Dosya Seç</button>
+      </div>
+
+      <!-- GitHub -->
+      <div class="panel" id="githubPanel" style="display:none">
+        <div class="panel-header">
+          <span>GitHub Repo</span>
+        </div>
+        <div class="github-form">
+          <input class="inp" id="githubUrl" placeholder="https://github.com/kullanici/repo" type="text">
+          <input class="inp" id="githubToken" placeholder="GitHub Token (opsiyonel, private repo için)" type="password">
+          <p class="hint">Public repolar için token gerekmez. Max 10 dosya analiz edilir.</p>
+        </div>
+        <button id="githubBtn" onclick="analyzeGithub()">Repo Analiz Et</button>
+      </div>
+
+      <!-- Sonuç -->
+      <div class="panel">
+        <div class="panel-header">
+          <span id="resultTitle">Sonuç</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-copy" id="copyBtn" onclick="copyResult()" style="display:none">Kopyala</button>
+            <span id="status"></span>
+          </div>
+        </div>
+        <div id="result" class="result">Analiz sonucu burada görünecek...</div>
+      </div>
+    </div>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('pastePanel').style.display = tab === 'paste' ? 'flex' : 'none';
+  document.getElementById('filePanel').style.display = tab === 'file' ? 'flex' : 'none';
+  document.getElementById('githubPanel').style.display = tab === 'github' ? 'flex' : 'none';
+}
+
+function setLoading(msg) {
+  document.getElementById('copyBtn').style.display = 'none';
+  document.getElementById('status').className = 'status-loading';
+  document.getElementById('status').textContent = msg;
+  document.getElementById('result').innerHTML = `<p class="muted">⏳ ${msg}</p>`;
+}
+
+function setResult(html) {
+  document.getElementById('result').innerHTML = html;
+  document.getElementById('copyBtn').style.display = 'inline-block';
+  document.getElementById('status').className = 'status-done';
+  document.getElementById('status').textContent = '✓ Tamamlandı';
+}
+
+function setError(msg) {
+  document.getElementById('result').innerHTML = `<p class="error-text">${msg}</p>`;
+  document.getElementById('status').className = 'status-error';
+  document.getElementById('status').textContent = '✗ Hata';
+}
+
+function buildZipHtml(results) {
+  return results.map(r =>
+    `<div class="file-section"><div class="file-name">📄 ${r.file}</div>${r.result}</div>`
+  ).join('');
+}
+
+async function analyze() {
+  const code = document.getElementById('code').value.trim();
+  const language = document.getElementById('language').value;
+  const btn = document.getElementById('analyzeBtn');
+
+  if (!code) { setError('Lütfen kod gir.'); return; }
+
+  btn.disabled = true;
+  setLoading('Analiz ediliyor...');
+
+  try {
+    const response = await fetch('/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, language })
+    });
+    const data = await response.json();
+    setResult(data.result);
+  } catch (err) {
+    setError('Hata: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function uploadFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const uploadArea = document.getElementById('uploadArea');
+  uploadArea.innerHTML = `<div class="upload-icon">📄</div><p>${file.name}</p><p class="hint" style="margin-top:4px">${(file.size/1024).toFixed(1)} KB</p>`;
+  document.getElementById('uploadBtn').style.display = 'block';
+
+  setLoading('Dosya analiz ediliyor...');
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await fetch('/upload', { method: 'POST', body: formData });
+    const data = await response.json();
+    if (data.error) { setError(data.error); return; }
+    setResult(data.type === 'zip' ? buildZipHtml(data.results) : data.result);
+  } catch (err) {
+    setError('Hata: ' + err.message);
+  }
+}
+
+async function analyzeGithub() {
+  const url = document.getElementById('githubUrl').value.trim();
+  const token = document.getElementById('githubToken').value.trim();
+  const btn = document.getElementById('githubBtn');
+
+  if (!url) { setError('GitHub URL gir.'); return; }
+
+  btn.disabled = true;
+  document.getElementById('copyBtn').style.display = 'none';
+  document.getElementById('status').className = 'status-loading';
+  document.getElementById('status').textContent = 'Bağlanıyor...';
+  document.getElementById('result').innerHTML = '<p class="muted">⏳ Repo analiz ediliyor...</p>';
+
+  const results = [];
+  let total = 0;
+  let repo = '';
+
+  try {
+    const response = await fetch('/github', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, token })
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+
+          if (msg.type === 'error') {
+            setError(msg.message);
+            btn.disabled = false;
+            return;
+          }
+
+          if (msg.type === 'start') {
+            total = msg.total;
+            repo = msg.repo;
+            document.getElementById('resultTitle').textContent = `Sonuç — ${repo}`;
+            document.getElementById('result').innerHTML = `
+              <div class="progress-wrap">
+                <div class="progress-info">
+                  <span id="progressText">0 / ${total} dosya analiz edildi</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar" id="progressBar" style="width:0%"></div>
+                </div>
+                <div id="progressFile" class="progress-file"></div>
+              </div>
+              <div id="resultsContainer"></div>
+            `;
+          }
+
+          if (msg.type === 'progress') {
+            const pct = Math.round((msg.current / total) * 100);
+            const bar = document.getElementById('progressBar');
+            const text = document.getElementById('progressText');
+            const file = document.getElementById('progressFile');
+            if (bar) bar.style.width = pct + '%';
+            if (text) text.textContent = `${msg.current} / ${total} dosya analiz edildi`;
+            if (file) file.textContent = `⏳ ${msg.file}`;
+            document.getElementById('status').textContent = `${msg.current}/${total} dosya`;
+          }
+
+          if (msg.type === 'result') {
+            results.push(msg);
+            const container = document.getElementById('resultsContainer');
+            if (container) {
+              container.innerHTML += `<div class="file-section"><div class="file-name">📄 ${msg.file}</div>${msg.result}</div>`;
+            }
+          }
+
+          if (msg.type === 'done') {
+            const progressWrap = document.querySelector('.progress-wrap');
+            if (progressWrap) progressWrap.style.display = 'none';
+            document.getElementById('copyBtn').style.display = 'inline-block';
+            document.getElementById('status').className = 'status-done';
+            document.getElementById('status').textContent = '✓ Tamamlandı';
+          }
+
+        } catch (e) { /* json parse hatası */ }
+      }
+    }
+  } catch (err) {
+    setError('Hata: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function copyResult() {
+  const copyBtn = document.getElementById('copyBtn');
+  navigator.clipboard.writeText(document.getElementById('result').innerText).then(() => {
+    copyBtn.textContent = '✓ Kopyalandı';
+    setTimeout(() => { copyBtn.textContent = 'Kopyala'; }, 2000);
+  });
+}
