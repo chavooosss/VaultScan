@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from analyzer import analyze_code_collab, analyze_multi_collab
 from providers import PROVIDERS, PROVIDER_LABELS, DEFAULT_PROVIDER, is_configured
 from auth import oauth
-from db import init_db, get_db, get_or_create_user
+from db import init_db, get_db, get_or_create_user, check_and_increment_quota, remaining_quota, User, FREE_MONTHLY_QUOTA
 from config import SESSION_SECRET
 import json
 
@@ -104,13 +104,26 @@ def validate_providers(providers: list[str]) -> str | None:
             return error
     return None
 
+QUOTA_EXCEEDED_MESSAGE = f"Aylık ücretsiz analiz hakkınız ({FREE_MONTHLY_QUOTA}) doldu. Daha fazla analiz için premium'a yükseltmeniz gerekiyor."
+
+def consume_quota(http_request: Request, db: Session) -> str | None:
+    user = db.get(User, http_request.session.get("user_id"))
+    if user is None:
+        return "Giriş yapmanız gerekiyor."
+    if not check_and_increment_quota(db, user):
+        return QUOTA_EXCEEDED_MESSAGE
+    return None
+
 @app.post("/analyze")
-async def analyze(request: AnalyzeRequest, http_request: Request):
+async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = Depends(get_db)):
     if not http_request.session.get("user_id"):
         return {"error": "Giriş yapmanız gerekiyor."}
     error = validate_providers(request.providers)
     if error:
         return {"error": error}
+    quota_error = consume_quota(http_request, db)
+    if quota_error:
+        return {"error": quota_error}
     try:
         result = await analyze_code_collab(request.code, request.language, request.providers)
     except Exception as e:
@@ -118,13 +131,16 @@ async def analyze(request: AnalyzeRequest, http_request: Request):
     return {"result": result}
 
 @app.post("/upload")
-async def upload_file(http_request: Request, file: UploadFile = File(...), providers: str = Form(DEFAULT_PROVIDER)):
+async def upload_file(http_request: Request, file: UploadFile = File(...), providers: str = Form(DEFAULT_PROVIDER), db: Session = Depends(get_db)):
     if not http_request.session.get("user_id"):
         return {"error": "Giriş yapmanız gerekiyor."}
     provider_list = [p.strip() for p in providers.split(",") if p.strip()]
     error = validate_providers(provider_list)
     if error:
         return {"error": error}
+    quota_error = consume_quota(http_request, db)
+    if quota_error:
+        return {"error": quota_error}
 
     filename = file.filename or ""
     content = await file.read()
@@ -183,7 +199,7 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
     return {"type": "file", "result": result}
 
 @app.post("/github")
-async def analyze_github(request: GithubRequest, http_request: Request):
+async def analyze_github(request: GithubRequest, http_request: Request, db: Session = Depends(get_db)):
     if not http_request.session.get("user_id"):
         return {"error": "Giriş yapmanız gerekiyor."}
     owner, repo = parse_github_url(request.url)
@@ -193,6 +209,10 @@ async def analyze_github(request: GithubRequest, http_request: Request):
     provider_error = validate_providers(request.providers)
     if provider_error:
         return {"error": provider_error}
+
+    quota_error = consume_quota(http_request, db)
+    if quota_error:
+        return {"error": quota_error}
 
     headers = {"Accept": "application/vnd.github.v3+json"}
     if request.token:
@@ -314,13 +334,19 @@ async def logout(request: Request):
     return RedirectResponse(url="/")
 
 @app.get("/api/me")
-async def me(request: Request):
+async def me(request: Request, db: Session = Depends(get_db)):
     if not request.session.get("user_id"):
+        return {"authenticated": False}
+    user = db.get(User, request.session["user_id"])
+    if user is None:
         return {"authenticated": False}
     return {
         "authenticated": True,
         "name": request.session.get("user_name", ""),
         "picture": request.session.get("user_picture", ""),
+        "plan": user.plan,
+        "remaining_quota": remaining_quota(user),
+        "monthly_quota": FREE_MONTHLY_QUOTA,
     }
 
 @app.get("/")

@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from starlette.responses import RedirectResponse
 
 from main import app
-from db import SessionLocal, User
+from db import SessionLocal, User, FREE_MONTHLY_QUOTA
 
 client = TestClient(app)
 
@@ -81,4 +81,7 @@ def test_me_endpoint_reports_user_info_after_login():
         "authenticated": True,
         "name": "Me User",
         "picture": "https://example.com/me.png",
+        "plan": "free",
+        "remaining_quota": FREE_MONTHLY_QUOTA,
+        "monthly_quota": FREE_MONTHLY_QUOTA,
     }

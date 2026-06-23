@@ -1,7 +1,9 @@
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from db import Base, User, get_or_create_user
+from db import Base, User, get_or_create_user, check_and_increment_quota, FREE_MONTHLY_QUOTA
 
 
 def _make_session():
@@ -47,3 +49,45 @@ def test_different_google_ids_create_separate_users():
     get_or_create_user(db, google_id="g-2", email="c@d.com", name="Cem")
 
     assert db.query(User).count() == 2
+
+
+def test_premium_user_always_passes_quota_check():
+    db = _make_session()
+    user = get_or_create_user(db, google_id="g-1", email="a@b.com", name="Ali")
+    user.plan = "premium"
+    db.commit()
+
+    for _ in range(FREE_MONTHLY_QUOTA + 5):
+        assert check_and_increment_quota(db, user) is True
+
+
+def test_free_user_can_use_up_to_monthly_quota():
+    db = _make_session()
+    user = get_or_create_user(db, google_id="g-1", email="a@b.com", name="Ali")
+
+    for _ in range(FREE_MONTHLY_QUOTA):
+        assert check_and_increment_quota(db, user) is True
+
+    assert check_and_increment_quota(db, user) is False
+    assert user.analyses_this_month == FREE_MONTHLY_QUOTA
+
+
+def test_free_user_quota_resets_in_a_new_month():
+    db = _make_session()
+    user = get_or_create_user(db, google_id="g-1", email="a@b.com", name="Ali")
+    user.analyses_this_month = FREE_MONTHLY_QUOTA
+    user.month_reset_at = datetime.now(timezone.utc) - timedelta(days=40)
+    db.commit()
+
+    assert check_and_increment_quota(db, user) is True
+    assert user.analyses_this_month == 1
+
+
+def test_free_user_with_no_reset_date_treated_as_needing_reset():
+    db = _make_session()
+    user = get_or_create_user(db, google_id="g-1", email="a@b.com", name="Ali")
+    user.month_reset_at = None
+    db.commit()
+
+    assert check_and_increment_quota(db, user) is True
+    assert user.analyses_this_month == 1
