@@ -1,3 +1,19 @@
+async function loadUserInfo() {
+  try {
+    const resp = await fetch('/api/me');
+    const data = await resp.json();
+    if (!data.authenticated) return;
+    document.getElementById('userName').textContent = data.name;
+    if (data.picture) {
+      const avatar = document.getElementById('userAvatar');
+      avatar.src = data.picture;
+      avatar.style.display = 'inline-block';
+    }
+  } catch (e) { /* sessiz geç */ }
+}
+
+loadUserInfo();
+
 function countSeverities(html) {
   const counts = { critical: 0, high: 0, medium: 0, low: 0 };
   const regex = /badge-(critical|high|medium|low)\b/g;

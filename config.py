@@ -13,3 +13,7 @@ OPENAI_MODEL = "gpt-4o-mini"
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = "gemini-2.5-flash"
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+SESSION_SECRET = os.getenv("SESSION_SECRET", "")

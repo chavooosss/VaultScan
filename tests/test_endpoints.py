@@ -4,12 +4,46 @@ import zipfile
 from unittest.mock import AsyncMock, patch
 
 import httpx
+import pytest
 import respx
 from fastapi.testclient import TestClient
 
 from main import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _logged_in():
+    fake_token = {"access_token": "fake", "userinfo": {
+        "sub": "test-google-id",
+        "email": "tester@example.com",
+        "name": "Tester",
+        "picture": "",
+    }}
+    with patch("main.oauth.google.authorize_access_token", AsyncMock(return_value=fake_token)):
+        client.get("/auth/google/callback")
+
+
+def test_analyze_endpoint_requires_login():
+    anon_client = TestClient(app)
+    resp = anon_client.post("/analyze", json={"code": "x = 1"})
+    assert resp.status_code == 200
+    assert "Giriş yapmanız gerekiyor" in resp.json()["error"]
+
+
+def test_root_serves_login_page_when_not_authenticated():
+    anon_client = TestClient(app)
+    resp = anon_client.get("/")
+    assert resp.status_code == 200
+    assert "Google ile Giriş Yap" in resp.text
+
+
+def test_root_serves_app_when_authenticated():
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "VaultScan" in resp.text
+    assert "providerPicker" in resp.text
 
 
 def test_analyze_endpoint_returns_mocked_result():
@@ -81,6 +115,13 @@ def test_upload_single_file():
     mock_analyze.assert_called_once_with("print('hi')", "PY", ["claude"])
 
 
+def test_upload_endpoint_requires_login():
+    anon_client = TestClient(app)
+    resp = anon_client.post("/upload", files={"file": ("app.py", b"print(1)", "text/x-python")})
+    assert resp.status_code == 200
+    assert "Giriş yapmanız gerekiyor" in resp.json()["error"]
+
+
 def test_upload_unsupported_extension():
     resp = client.post("/upload", files={"file": ("malware.exe", b"binary", "application/octet-stream")})
     assert resp.status_code == 200
@@ -127,6 +168,13 @@ def test_upload_zip_multiple_small_files_analyzed_together():
     assert all(r["result"] == "<div>zip-result</div>" for r in data["results"])
     assert mock_multi.call_args.args[1] == ["claude"]
     assert len(mock_multi.call_args.args[0]) == 2
+
+
+def test_github_endpoint_requires_login():
+    anon_client = TestClient(app)
+    resp = anon_client.post("/github", json={"url": "https://github.com/owner/repo"})
+    assert resp.status_code == 200
+    assert "Giriş yapmanız gerekiyor" in resp.json()["error"]
 
 
 def test_github_invalid_url_returns_error_without_streaming():

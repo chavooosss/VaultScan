@@ -6,6 +6,9 @@ google-genai
 python-dotenv
 httpx
 python-multipart
+authlib
+sqlalchemy
+itsdangerous
 pytest
 pytest-asyncio
 respx

@@ -47,6 +47,7 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
 
 .container {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -56,6 +57,37 @@ body {
   width: 100%;
   margin: 0 auto;
 }
+
+.user-bar {
+  position: absolute;
+  top: 28px;
+  right: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+}
+
+.user-name { font-weight: 500; color: var(--text-secondary); }
+
+.logout-link {
+  color: var(--text-tertiary);
+  text-decoration: none;
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  transition: all 0.2s var(--ease);
+}
+
+.logout-link:hover { color: var(--text); border-color: var(--border-strong); background: var(--bg-hover); }
 
 .header { text-align: center; padding: 6px 0 4px; }
 
@@ -484,6 +516,56 @@ button:disabled { background: var(--bg-elevated); color: var(--text-tertiary); c
 }
 
 .print-title { display: none; }
+
+.login-body {
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 48px 40px;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+  margin: auto;
+}
+
+.login-card h1 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 4px;
+}
+
+.login-card p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-top: 8px;
+  margin-bottom: 28px;
+}
+
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  background: #fff;
+  color: #1f1f1f;
+  border-radius: var(--radius-sm);
+  padding: 11px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.2s var(--ease);
+}
+
+.google-btn:hover { opacity: 0.88; }
+.google-btn svg { width: 18px; height: 18px; }
 
 @media (max-width: 900px) {
   .editor { flex-direction: column; overflow: visible; }

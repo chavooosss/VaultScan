@@ -2,15 +2,22 @@ import zipfile
 import io
 import httpx
 import re
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, Request, Depends
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, RedirectResponse
+from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from analyzer import analyze_code_collab, analyze_multi_collab
 from providers import PROVIDERS, PROVIDER_LABELS, DEFAULT_PROVIDER, is_configured
+from auth import oauth
+from db import init_db, get_db, get_or_create_user
+from config import SESSION_SECRET
 import json
 
 app = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
+init_db()
 
 SUPPORTED_EXTENSIONS = {
     '.py', '.js', '.ts', '.php', '.java', '.go', '.rs',
@@ -98,7 +105,9 @@ def validate_providers(providers: list[str]) -> str | None:
     return None
 
 @app.post("/analyze")
-async def analyze(request: AnalyzeRequest):
+async def analyze(request: AnalyzeRequest, http_request: Request):
+    if not http_request.session.get("user_id"):
+        return {"error": "Giriş yapmanız gerekiyor."}
     error = validate_providers(request.providers)
     if error:
         return {"error": error}
@@ -109,7 +118,9 @@ async def analyze(request: AnalyzeRequest):
     return {"result": result}
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...), providers: str = Form(DEFAULT_PROVIDER)):
+async def upload_file(http_request: Request, file: UploadFile = File(...), providers: str = Form(DEFAULT_PROVIDER)):
+    if not http_request.session.get("user_id"):
+        return {"error": "Giriş yapmanız gerekiyor."}
     provider_list = [p.strip() for p in providers.split(",") if p.strip()]
     error = validate_providers(provider_list)
     if error:
@@ -172,7 +183,9 @@ async def upload_file(file: UploadFile = File(...), providers: str = Form(DEFAUL
     return {"type": "file", "result": result}
 
 @app.post("/github")
-async def analyze_github(request: GithubRequest):
+async def analyze_github(request: GithubRequest, http_request: Request):
+    if not http_request.session.get("user_id"):
+        return {"error": "Giriş yapmanız gerekiyor."}
     owner, repo = parse_github_url(request.url)
     if not owner or not repo:
         return {"error": "Geçersiz GitHub URL'i."}
@@ -274,8 +287,46 @@ async def analyze_github(request: GithubRequest):
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 
+@app.get("/auth/google/login")
+async def google_login(request: Request):
+    redirect_uri = request.url_for("google_callback")
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@app.get("/auth/google/callback")
+async def google_callback(request: Request, db: Session = Depends(get_db)):
+    token = await oauth.google.authorize_access_token(request)
+    userinfo = token.get("userinfo") or await oauth.google.userinfo(token=token)
+    user = get_or_create_user(
+        db,
+        google_id=userinfo["sub"],
+        email=userinfo["email"],
+        name=userinfo.get("name", ""),
+        picture=userinfo.get("picture", ""),
+    )
+    request.session["user_id"] = user.id
+    request.session["user_name"] = user.name
+    request.session["user_picture"] = user.picture
+    return RedirectResponse(url="/")
+
+@app.get("/auth/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/")
+
+@app.get("/api/me")
+async def me(request: Request):
+    if not request.session.get("user_id"):
+        return {"authenticated": False}
+    return {
+        "authenticated": True,
+        "name": request.session.get("user_name", ""),
+        "picture": request.session.get("user_picture", ""),
+    }
+
 @app.get("/")
-async def root():
+async def root(request: Request):
+    if not request.session.get("user_id"):
+        return FileResponse("static/login.html")
     return FileResponse("static/index.html")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
