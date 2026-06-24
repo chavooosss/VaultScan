@@ -349,6 +349,16 @@ async function analyzeGithub() {
         } catch (e) { /* json parse hatası */ }
       }
     }
+
+    // Stream hiç başlamadan tek seferlik bir {"error": ...} ile bitmiş olabilir
+    // (örn. geçersiz URL, CSRF, rate limit) — sonda \n olmadığı için yukarıdaki
+    // döngü bunu hiç işlemez, son kalan parçayı burada kontrol ediyoruz.
+    if (buffer.trim()) {
+      try {
+        const msg = JSON.parse(buffer);
+        if (msg.error) setError(msg.error);
+      } catch (e) { /* yoksay */ }
+    }
   } catch (err) {
     setError('Hata: ' + err.message);
   } finally {

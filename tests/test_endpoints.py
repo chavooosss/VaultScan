@@ -65,6 +65,26 @@ def test_analyze_endpoint_rejects_wrong_csrf_token():
     assert "CSRF" in resp.json()["error"]
 
 
+def test_analyze_endpoint_rate_limits_after_threshold():
+    import main
+    with patch("main.analyze_code_collab", AsyncMock(return_value="ok")):
+        for _ in range(main.ANALYSIS_RATE_LIMIT):
+            resp = client.post("/analyze", json={"code": "x = 1"})
+            assert "error" not in resp.json()
+        resp = client.post("/analyze", json={"code": "x = 1"})
+    assert "Çok fazla istek" in resp.json()["error"]
+
+
+def test_upload_rate_limit_is_independent_of_analyze():
+    import main
+    with patch("main.analyze_code_collab", AsyncMock(return_value="ok")):
+        for _ in range(main.ANALYSIS_RATE_LIMIT):
+            client.post("/analyze", json={"code": "x = 1"})
+        # /analyze artık limitte, ama /upload kendi bucket'ında olmalı
+        resp = client.post("/upload", files={"file": ("app.py", b"print(1)", "text/x-python")})
+    assert "error" not in resp.json()
+
+
 def test_root_serves_login_page_when_not_authenticated():
     anon_client = TestClient(app)
     resp = anon_client.get("/")

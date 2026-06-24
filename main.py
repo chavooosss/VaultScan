@@ -3,6 +3,9 @@ import io
 import httpx
 import re
 import secrets
+import time
+import threading
+from collections import defaultdict, deque
 from fastapi import FastAPI, UploadFile, File, Form, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse, RedirectResponse
@@ -30,6 +33,30 @@ SUPPORTED_EXTENSIONS = {
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 MAX_ZIP_ENTRY_SIZE = 2 * 1024 * 1024  # 2 MB (zip bomb koruması)
 MAX_GITHUB_FILES = 50
+
+ANALYSIS_RATE_LIMIT = 10  # her route için kullanıcı bazlı, pencere başına
+ANALYSIS_RATE_WINDOW_SECONDS = 60
+
+_rate_limit_buckets: dict[str, deque] = defaultdict(deque)
+_rate_limit_lock = threading.Lock()
+
+def check_rate_limit(key: str, max_requests: int = ANALYSIS_RATE_LIMIT, window_seconds: int = ANALYSIS_RATE_WINDOW_SECONDS) -> bool:
+    now = time.monotonic()
+    with _rate_limit_lock:
+        bucket = _rate_limit_buckets[key]
+        while bucket and now - bucket[0] > window_seconds:
+            bucket.popleft()
+        if len(bucket) >= max_requests:
+            return False
+        bucket.append(now)
+        return True
+
+def rate_limit_error(http_request: Request, route_name: str) -> str | None:
+    user_id = http_request.session.get("user_id")
+    key = f"{route_name}:user:{user_id}" if user_id else f"{route_name}:ip:{http_request.client.host}"
+    if not check_rate_limit(key):
+        return "Çok fazla istek gönderdiniz. Lütfen bir dakika bekleyip tekrar deneyin."
+    return None
 
 # Kritik dosya isimleri — önce bunlar analiz edilir
 PRIORITY_PATTERNS = [
@@ -142,6 +169,9 @@ async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = 
     user = get_current_user(http_request, db)
     if user is None:
         return {"error": "Giriş yapmanız gerekiyor."}
+    rate_error = rate_limit_error(http_request, "analyze")
+    if rate_error:
+        return {"error": rate_error}
     csrf_error = verify_csrf(http_request)
     if csrf_error:
         return {"error": csrf_error}
@@ -160,6 +190,9 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
     user = get_current_user(http_request, db)
     if user is None:
         return {"error": "Giriş yapmanız gerekiyor."}
+    rate_error = rate_limit_error(http_request, "upload")
+    if rate_error:
+        return {"error": rate_error}
     csrf_error = verify_csrf(http_request)
     if csrf_error:
         return {"error": csrf_error}
@@ -235,6 +268,9 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
     user = get_current_user(http_request, db)
     if user is None:
         return {"error": "Giriş yapmanız gerekiyor."}
+    rate_error = rate_limit_error(http_request, "github")
+    if rate_error:
+        return {"error": rate_error}
     csrf_error = verify_csrf(http_request)
     if csrf_error:
         return {"error": csrf_error}
