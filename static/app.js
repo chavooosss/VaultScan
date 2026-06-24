@@ -129,11 +129,14 @@ function hideExportButtons() {
   document.getElementById('pdfBtn').style.display = 'none';
 }
 
+let currentAbortController = null;
+
 function setLoading(msg) {
   hideExportButtons();
   document.getElementById('status').className = 'status-loading';
   document.getElementById('status').textContent = msg;
   document.getElementById('result').innerHTML = `<p class="muted">⏳ ${msg}</p>`;
+  document.getElementById('stopBtn').style.display = 'inline-block';
 }
 
 function setResult(html) {
@@ -141,12 +144,28 @@ function setResult(html) {
   showExportButtons();
   document.getElementById('status').className = 'status-done';
   document.getElementById('status').textContent = '✓ Tamamlandı';
+  document.getElementById('stopBtn').style.display = 'none';
+  currentAbortController = null;
 }
 
 function setError(msg) {
   document.getElementById('result').innerHTML = `<p class="error-text">${escapeHtml(msg)}</p>`;
   document.getElementById('status').className = 'status-error';
   document.getElementById('status').textContent = '✗ Hata';
+  document.getElementById('stopBtn').style.display = 'none';
+  currentAbortController = null;
+}
+
+function stopAnalysis() {
+  if (currentAbortController) currentAbortController.abort();
+}
+
+function setStopped() {
+  document.getElementById('result').innerHTML = '<p class="muted">⏹ Analiz durduruldu.</p>';
+  document.getElementById('status').className = '';
+  document.getElementById('status').textContent = 'Durduruldu';
+  document.getElementById('stopBtn').style.display = 'none';
+  currentAbortController = null;
 }
 
 function buildZipHtml(results) {
@@ -178,18 +197,21 @@ async function analyze() {
 
   btn.disabled = true;
   setLoading('Analiz ediliyor...');
+  currentAbortController = new AbortController();
 
   try {
     await userInfoReady;
     const response = await fetch('/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-      body: JSON.stringify({ code, language, providers: getSelectedProviders() })
+      body: JSON.stringify({ code, language, providers: getSelectedProviders() }),
+      signal: currentAbortController.signal
     });
     const data = await response.json();
     if (data.error) { setError(data.error); return; }
     setResult(data.result);
   } catch (err) {
+    if (err.name === 'AbortError') { setStopped(); return; }
     setError('Hata: ' + err.message);
   } finally {
     btn.disabled = false;
@@ -226,8 +248,11 @@ function cancelUpload() {
 async function confirmUpload() {
   if (!selectedFile) return;
   const file = selectedFile;
+  const btn = document.getElementById('uploadConfirmBtn');
 
+  btn.disabled = true;
   setLoading('Dosya analiz ediliyor...');
+  currentAbortController = new AbortController();
 
   const formData = new FormData();
   formData.append('file', file);
@@ -235,12 +260,20 @@ async function confirmUpload() {
 
   try {
     await userInfoReady;
-    const response = await fetch('/upload', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, body: formData });
+    const response = await fetch('/upload', {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': csrfToken },
+      body: formData,
+      signal: currentAbortController.signal
+    });
     const data = await response.json();
     if (data.error) { setError(data.error); return; }
     setResult(data.type === 'zip' ? buildZipHtml(data.results) : data.result);
   } catch (err) {
+    if (err.name === 'AbortError') { setStopped(); return; }
     setError('Hata: ' + err.message);
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -256,6 +289,8 @@ async function analyzeGithub() {
   document.getElementById('status').className = 'status-loading';
   document.getElementById('status').textContent = 'Bağlanıyor...';
   document.getElementById('result').innerHTML = '<p class="muted">⏳ Repo analiz ediliyor...</p>';
+  document.getElementById('stopBtn').style.display = 'inline-block';
+  currentAbortController = new AbortController();
 
   const results = [];
   let total = 0;
@@ -266,7 +301,8 @@ async function analyzeGithub() {
     const response = await fetch('/github', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-      body: JSON.stringify({ url, token, providers: getSelectedProviders() })
+      body: JSON.stringify({ url, token, providers: getSelectedProviders() }),
+      signal: currentAbortController.signal
     });
 
     const reader = response.body.getReader();
@@ -344,6 +380,8 @@ async function analyzeGithub() {
             showExportButtons();
             document.getElementById('status').className = 'status-done';
             document.getElementById('status').textContent = '✓ Tamamlandı';
+            document.getElementById('stopBtn').style.display = 'none';
+            currentAbortController = null;
           }
 
         } catch (e) { /* json parse hatası */ }
@@ -360,6 +398,7 @@ async function analyzeGithub() {
       } catch (e) { /* yoksay */ }
     }
   } catch (err) {
+    if (err.name === 'AbortError') { setStopped(); return; }
     setError('Hata: ' + err.message);
   } finally {
     btn.disabled = false;
