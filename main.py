@@ -1,4 +1,5 @@
 import asyncio
+import os
 import zipfile
 import html
 import io
@@ -26,8 +27,16 @@ from config import SESSION_SECRET
 import json
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=bool(os.getenv("RENDER")))
 init_db()
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    return response
 
 SUPPORTED_EXTENSIONS = {
     '.py', '.js', '.ts', '.php', '.java', '.go', '.rs',
