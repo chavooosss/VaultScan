@@ -45,8 +45,23 @@ function summaryPillsHtml(counts) {
   return `<span class="summary-pill summary-total"><strong>${total}</strong> Bulgu</span>${pills}`;
 }
 
+function severityBarSegments(counts) {
+  const total = counts.critical + counts.high + counts.medium + counts.low;
+  if (total === 0) return '';
+  return ['critical', 'high', 'medium', 'low']
+    .filter(key => counts[key] > 0)
+    .map(key => `<div class="severity-bar-seg severity-bar-${key}" style="width:${(counts[key] / total * 100).toFixed(2)}%"></div>`)
+    .join('');
+}
+
+function severityBarHtml(counts) {
+  const segments = severityBarSegments(counts);
+  return segments ? `<div class="severity-bar">${segments}</div>` : '';
+}
+
 function summaryBarHtml(html) {
-  return `<div class="summary-bar">${summaryPillsHtml(countSeverities(html))}</div>`;
+  const counts = countSeverities(html);
+  return `${severityBarHtml(counts)}<div class="summary-bar">${summaryPillsHtml(counts)}</div>`;
 }
 
 function injectLineChips(html) {

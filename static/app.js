@@ -309,6 +309,7 @@ async function analyzeGithub() {
                 </div>
                 <div id="progressFile" class="progress-file"></div>
               </div>
+              <div id="severityBar"></div>
               <div class="summary-bar" id="summaryBar"></div>
               <div id="resultsContainer"></div>
             `;
@@ -331,8 +332,11 @@ async function analyzeGithub() {
             if (container) {
               container.innerHTML += `<div class="file-section"><div class="file-name">📄 ${escapeHtml(msg.file)}</div>${injectLineChips(sanitizeAiHtml(msg.result))}</div>`;
             }
+            const counts = countSeverities(container.innerHTML);
             const summaryBar = document.getElementById('summaryBar');
-            if (summaryBar) summaryBar.innerHTML = summaryPillsHtml(countSeverities(container.innerHTML));
+            if (summaryBar) summaryBar.innerHTML = summaryPillsHtml(counts);
+            const severityBar = document.getElementById('severityBar');
+            if (severityBar) severityBar.innerHTML = severityBarHtml(counts);
           }
 
           if (msg.type === 'done') {
