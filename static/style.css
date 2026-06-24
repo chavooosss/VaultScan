@@ -654,9 +654,10 @@ button:disabled { background: var(--bg-elevated); color: var(--text-tertiary); c
 }
 
 .back-link {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: 13px;
+  font-weight: 500;
   align-self: flex-start;
   transition: color 0.2s var(--ease);
 }
