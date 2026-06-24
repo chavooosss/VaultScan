@@ -38,7 +38,7 @@ async function loadKeyStatuses() {
   } catch (e) { /* sessiz geç */ }
 }
 
-const KEY_PREFIXES = { claude: 'sk-ant-', chatgpt: 'sk-', gemini: 'AIza' };
+const KEY_PREFIXES = { claude: 'sk-ant-', chatgpt: 'sk-' };
 
 async function saveKey(card) {
   const provider = card.dataset.provider;
@@ -48,7 +48,7 @@ async function saveKey(card) {
 
   const prefix = KEY_PREFIXES[provider];
   if (prefix && !value.startsWith(prefix)) {
-    setStatus("Geçersiz API key formatı. Claude için sk-ant-, OpenAI için sk-, Gemini için AIza ile başlamalı.", true);
+    setStatus("Geçersiz API key formatı. Claude için sk-ant-, OpenAI için sk- ile başlamalı.", true);
     return;
   }
 
