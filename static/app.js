@@ -84,11 +84,22 @@ async function consumeNdjsonStream(response, onMessage) {
 
 let currentAbortController = null;
 
+function skeletonHtml() {
+  const card = (lines) => `<div class="skeleton-card">${lines.map(w => `<div class="skeleton skeleton-line" style="width:${w}"></div>`).join('')}</div>`;
+  return `
+    <div class="skeleton-wrap">
+      <div class="skeleton skeleton-pill"></div>
+      ${card(['55%', '92%', '78%'])}
+      ${card(['40%', '85%'])}
+    </div>
+  `;
+}
+
 function setLoading(msg) {
   hideExportButtons();
   document.getElementById('status').className = 'status-loading';
   document.getElementById('status').textContent = msg;
-  document.getElementById('result').innerHTML = `<p class="muted">⏳ ${msg}</p>`;
+  document.getElementById('result').innerHTML = skeletonHtml();
   document.getElementById('stopBtn').style.display = 'inline-block';
 }
 
@@ -249,7 +260,7 @@ async function analyzeGithub() {
   hideExportButtons();
   document.getElementById('status').className = 'status-loading';
   document.getElementById('status').textContent = 'Bağlanıyor...';
-  document.getElementById('result').innerHTML = '<p class="muted">⏳ Repo analiz ediliyor...</p>';
+  document.getElementById('result').innerHTML = skeletonHtml();
   document.getElementById('stopBtn').style.display = 'inline-block';
   currentAbortController = new AbortController();
 

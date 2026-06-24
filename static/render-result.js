@@ -64,6 +64,12 @@ function summaryBarHtml(html) {
   return `${severityBarHtml(counts)}<div class="summary-bar">${summaryPillsHtml(counts)}</div>`;
 }
 
+const PROVIDER_TAG_PATTERNS = [
+  { re: /\bclaude\b/gi, cls: 'claude', label: 'Claude' },
+  { re: /\bchatgpt\b|\bgpt-?\d*\b|\bopenai\b/gi, cls: 'chatgpt', label: 'ChatGPT' },
+  { re: /\bgemini\b/gi, cls: 'gemini', label: 'Gemini' },
+];
+
 function injectLineChips(html) {
   const wrapper = document.createElement('div');
   wrapper.innerHTML = html;
@@ -71,15 +77,29 @@ function injectLineChips(html) {
     const body = finding.querySelector('.finding-body');
     const titleEl = finding.querySelector('.finding-title');
     if (!body || !titleEl) return;
-    const lineP = Array.from(body.querySelectorAll('p')).find(p => p.textContent.includes('Satır:'));
-    if (!lineP) return;
-    const match = lineP.textContent.match(/Satır:\s*(.+)/);
-    const value = match ? match[1].trim() : '';
-    if (!value || /^n\/?a$/i.test(value)) return;
-    const chip = document.createElement('span');
-    chip.className = 'line-chip';
-    chip.textContent = `L:${value}`;
-    titleEl.appendChild(chip);
+
+    const paragraphs = Array.from(body.querySelectorAll('p'));
+
+    const lineP = paragraphs.find(p => p.textContent.includes('Satır:'));
+    if (lineP) {
+      const match = lineP.textContent.match(/Satır:\s*(.+)/);
+      const value = match ? match[1].trim() : '';
+      if (value && !/^n\/?a$/i.test(value)) {
+        const chip = document.createElement('span');
+        chip.className = 'line-chip';
+        chip.textContent = `L:${value}`;
+        titleEl.appendChild(chip);
+      }
+    }
+
+    const detectedByP = paragraphs.find(p => p.textContent.includes('Tespit eden'));
+    if (detectedByP) {
+      let markup = detectedByP.innerHTML;
+      PROVIDER_TAG_PATTERNS.forEach(({ re, cls, label }) => {
+        markup = markup.replace(re, `<span class="provider-tag provider-tag-${cls}">${label}</span>`);
+      });
+      detectedByP.innerHTML = markup;
+    }
   });
   return wrapper.innerHTML;
 }
