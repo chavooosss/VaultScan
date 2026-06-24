@@ -1,8 +1,15 @@
 # VaultScan
 
+[![Tests](https://github.com/chavooosss/VaultScan/actions/workflows/tests.yml/badge.svg)](https://github.com/chavooosss/VaultScan/actions/workflows/tests.yml)
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://vaultscan-pxyt.onrender.com)
+[![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-blue)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org/)
+
 VaultScan is a tool that lets you point AI at your code and ask: "is there a security vulnerability here?" Paste a code snippet, upload a file/ZIP, or give it a GitHub repo link — VaultScan reads the code, flags risky spots (SQL injection, XSS, leaked secrets, weak validation, and more), and shows you a readable report.
 
-Live at: https://vaultscan-pxyt.onrender.com
+**Live at: https://vaultscan-pxyt.onrender.com**
+
+![VaultScan — Claude, ChatGPT, and Gemini collaboratively reviewing the same code, with findings merged into one report](docs/hero.png)
 
 ## What's the point?
 
@@ -111,7 +118,7 @@ VaultScan is under active development. Currently being worked on / planned:
 
 ## License
 
-No formal license has been chosen yet. The source is public on GitHub for transparency, but please don't assume permission to reuse it commercially without asking.
+All rights reserved — see [LICENSE](LICENSE). The source is public for transparency and portfolio purposes; reuse, redistribution, or commercial use requires written permission.
 
 ---
 
