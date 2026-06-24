@@ -62,7 +62,9 @@ async def test_when_only_one_survives_no_synthesis_needed():
          patch.object(openai_provider, "synthesize") as mock_synth:
         result = await analyzer.analyze_code_collab("x = 1", "Python", ["claude", "chatgpt"], API_KEYS)
 
-    assert result == "<div>gpt-only</div>"
+    assert result.endswith("<div>gpt-only</div>")
+    assert "Bazı modeller analize katılamadı" in result
+    assert "Claude" in result
     mock_synth.assert_not_called()
 
 
