@@ -467,4 +467,8 @@ async def settings_page(request: Request):
         return FileResponse("static/login.html")
     return FileResponse("static/settings.html")
 
+@app.get("/gizlilik")
+async def privacy_page():
+    return FileResponse("static/privacy.html")
+
 app.mount("/static", StaticFiles(directory="static"), name="static")

@@ -92,6 +92,13 @@ def test_root_serves_login_page_when_not_authenticated():
     assert "Google ile Giriş Yap" in resp.text
 
 
+def test_privacy_page_is_public_without_login():
+    anon_client = TestClient(app)
+    resp = anon_client.get("/gizlilik")
+    assert resp.status_code == 200
+    assert "Verilerinle ne yapıyoruz" in resp.text
+
+
 def test_root_serves_app_when_authenticated():
     resp = client.get("/")
     assert resp.status_code == 200
