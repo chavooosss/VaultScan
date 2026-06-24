@@ -190,6 +190,14 @@ def test_analyze_endpoint_empty_providers_returns_error():
     assert "En az bir AI" in resp.json()["error"]
 
 
+def test_analyze_endpoint_rejects_oversized_code():
+    import main
+    too_big = "x" * (main.MAX_PASTE_LENGTH + 1)
+    resp = client.post("/analyze", json={"code": too_big})
+    assert resp.status_code == 200
+    assert "çok büyük" in resp.json()["error"]
+
+
 def test_analyze_endpoint_unconfigured_provider_returns_friendly_error():
     resp = client.post("/analyze", json={"code": "x = 1", "providers": ["gemini"]})
     assert resp.status_code == 200

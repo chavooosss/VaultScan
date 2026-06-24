@@ -46,6 +46,7 @@ SUPPORTED_EXTENSIONS = {
 
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 MAX_ZIP_ENTRY_SIZE = 2 * 1024 * 1024  # 2 MB (zip bomb koruması)
+MAX_PASTE_LENGTH = 200_000  # karakter — /analyze'a sınırsız boyutta metin gönderilmesini engeller
 MAX_GITHUB_FILES = 50
 MAX_PROJECT_TREE_CHARS = 3000
 
@@ -232,6 +233,8 @@ async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = 
     csrf_error = verify_csrf(http_request)
     if csrf_error:
         return {"error": csrf_error}
+    if len(request.code) > MAX_PASTE_LENGTH:
+        return {"error": f"Kod çok büyük (maks {MAX_PASTE_LENGTH:,} karakter). Büyük dosyalar için dosya/zip yükleme sekmesini kullan."}
     error = validate_providers(request.providers, user)
     if error:
         return {"error": error}
@@ -282,8 +285,8 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
     is_zip = filename.endswith(".zip")
 
     if is_zip:
-        file_contents = []
         with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            candidates = []
             for info in zf.infolist():
                 name = info.filename
                 ext = "." + name.split(".")[-1].lower() if "." in name else ""
@@ -293,16 +296,24 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
                     continue
                 if info.file_size > MAX_ZIP_ENTRY_SIZE:
                     continue
+                candidates.append(info)
+
+            # Hangi 20 dosyanın açılacağına, hiçbirini decompress etmeden önce karar ver
+            # (zip bomb koruması — çok girişli bir zip'in hepsini belleğe açıp sonra
+            # çoğunu çöpe atmak yerine, sadece seçilenleri açıyoruz).
+            candidates.sort(key=lambda info: score_file(info.filename), reverse=True)
+            candidates = candidates[:20]
+
+            file_contents = []
+            for info in candidates:
                 try:
-                    code = zf.read(name).decode("utf-8", errors="ignore")
+                    code = zf.read(info.filename).decode("utf-8", errors="ignore")
                     if not code.strip():
                         continue
-                    file_contents.append({"path": name, "code": code, "language": name.split(".")[-1].upper(), "size": len(code)})
+                    file_contents.append({"path": info.filename, "code": code, "language": info.filename.split(".")[-1].upper(), "size": len(code)})
                 except Exception:
                     continue
 
-        file_contents.sort(key=lambda f: score_file(f['path']), reverse=True)
-        file_contents = file_contents[:20]
         if not file_contents:
             return {"error": "Zip içinde desteklenen dosya bulunamadı."}
     else:
