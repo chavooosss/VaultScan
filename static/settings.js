@@ -35,11 +35,19 @@ async function loadKeyStatuses() {
   } catch (e) { /* sessiz geç */ }
 }
 
+const KEY_PREFIXES = { claude: 'sk-ant-', chatgpt: 'sk-', gemini: 'AIza' };
+
 async function saveKey(card) {
   const provider = card.dataset.provider;
   const input = card.querySelector('.key-input');
   const value = input.value.trim();
   if (!value) { setStatus('API key boş olamaz.', true); return; }
+
+  const prefix = KEY_PREFIXES[provider];
+  if (prefix && !value.startsWith(prefix)) {
+    setStatus("Geçersiz API key formatı. Claude için sk-ant-, OpenAI için sk-, Gemini için AIza ile başlamalı.", true);
+    return;
+  }
 
   try {
     const resp = await fetch('/api/keys', {

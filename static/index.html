@@ -15,6 +15,7 @@
     <div class="user-bar" id="userBar">
       <img id="userAvatar" class="user-avatar" src="" alt="" style="display:none">
       <span id="userName" class="user-name"></span>
+      <button id="themeToggle" class="logout-link" onclick="toggleTheme()">☀︎</button>
       <a href="/settings" class="logout-link">Ayarlar</a>
       <a href="/auth/logout" class="logout-link">Çıkış</a>
     </div>
@@ -81,7 +82,7 @@
         <div class="github-form">
           <input class="inp" id="githubUrl" placeholder="https://github.com/kullanici/repo" type="text">
           <input class="inp" id="githubToken" placeholder="GitHub Token (opsiyonel, private repo için)" type="password">
-          <p class="hint">Public repolar için token gerekmez. Max 20 dosya analiz edilir.</p>
+          <p class="hint">Public repolar için token gerekmez. Max 20 dosya analiz edilir. · Ctrl+Enter ile analiz et</p>
         </div>
         <button id="githubBtn" onclick="analyzeGithub()">Repo Analiz Et</button>
       </div>

@@ -12,6 +12,27 @@ async function loadUserInfo() {
   } catch (e) { /* sessiz geç */ }
 }
 
+function applyTheme(theme) {
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.textContent = '☾';
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.textContent = '☀︎';
+  }
+}
+
+function toggleTheme() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const next = isLight ? 'dark' : 'light';
+  localStorage.setItem('theme', next);
+  applyTheme(next);
+}
+
+applyTheme(localStorage.getItem('theme'));
+
 loadUserInfo();
 
 function escapeHtml(str) {
@@ -23,8 +44,18 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener');
+  }
+});
+
 function sanitizeAiHtml(html) {
-  return DOMPurify.sanitize(html, { ALLOWED_TAGS: ['div', 'span', 'p', 'strong'], ALLOWED_ATTR: ['class'] });
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['div', 'span', 'p', 'strong', 'code', 'pre', 'ul', 'ol', 'li', 'a'],
+    ALLOWED_ATTR: ['class', 'href']
+  });
 }
 
 function countSeverities(html) {
@@ -55,13 +86,51 @@ function summaryBarHtml(html) {
   return `<div class="summary-bar">${summaryPillsHtml(countSeverities(html))}</div>`;
 }
 
+function injectLineChips(html) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  wrapper.querySelectorAll('.finding').forEach(finding => {
+    const body = finding.querySelector('.finding-body');
+    const titleEl = finding.querySelector('.finding-title');
+    if (!body || !titleEl) return;
+    const lineP = Array.from(body.querySelectorAll('p')).find(p => p.textContent.includes('Satır:'));
+    if (!lineP) return;
+    const match = lineP.textContent.match(/Satır:\s*(.+)/);
+    const value = match ? match[1].trim() : '';
+    if (!value || /^n\/?a$/i.test(value)) return;
+    const chip = document.createElement('span');
+    chip.className = 'line-chip';
+    chip.textContent = `L:${value}`;
+    titleEl.appendChild(chip);
+  });
+  return wrapper.innerHTML;
+}
+
+let currentTab = 'paste';
+
 function switchTab(tab, el) {
+  currentTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('pastePanel').style.display = tab === 'paste' ? 'flex' : 'none';
   document.getElementById('filePanel').style.display = tab === 'file' ? 'flex' : 'none';
   document.getElementById('githubPanel').style.display = tab === 'github' ? 'flex' : 'none';
+
+  const shown = document.getElementById(tab + 'Panel');
+  if (shown) {
+    shown.classList.remove('panel-fade');
+    void shown.offsetWidth;
+    shown.classList.add('panel-fade');
+  }
 }
+
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.key !== 'Enter') return;
+  e.preventDefault();
+  if (currentTab === 'paste') analyze();
+  else if (currentTab === 'file') document.getElementById('fileInput').click();
+  else if (currentTab === 'github') analyzeGithub();
+});
 
 function showExportButtons() {
   document.getElementById('copyBtn').style.display = 'inline-block';
@@ -83,7 +152,7 @@ function setLoading(msg) {
 }
 
 function setResult(html) {
-  document.getElementById('result').innerHTML = summaryBarHtml(html) + sanitizeAiHtml(html);
+  document.getElementById('result').innerHTML = summaryBarHtml(html) + injectLineChips(sanitizeAiHtml(html));
   showExportButtons();
   document.getElementById('status').className = 'status-done';
   document.getElementById('status').textContent = '✓ Tamamlandı';
@@ -97,7 +166,7 @@ function setError(msg) {
 
 function buildZipHtml(results) {
   return results.map(r =>
-    `<div class="file-section"><div class="file-name">📄 ${escapeHtml(r.file)}</div>${sanitizeAiHtml(r.result)}</div>`
+    `<div class="file-section"><div class="file-name">📄 ${escapeHtml(r.file)}</div>${injectLineChips(sanitizeAiHtml(r.result))}</div>`
   ).join('');
 }
 
@@ -143,6 +212,11 @@ async function analyze() {
 
 async function uploadFile(input) {
   const file = input.files[0];
+  if (!file) return;
+  await handleFile(file);
+}
+
+async function handleFile(file) {
   if (!file) return;
 
   const uploadArea = document.getElementById('uploadArea');
@@ -252,7 +326,7 @@ async function analyzeGithub() {
             results.push(msg);
             const container = document.getElementById('resultsContainer');
             if (container) {
-              container.innerHTML += `<div class="file-section"><div class="file-name">📄 ${escapeHtml(msg.file)}</div>${sanitizeAiHtml(msg.result)}</div>`;
+              container.innerHTML += `<div class="file-section"><div class="file-name">📄 ${escapeHtml(msg.file)}</div>${injectLineChips(sanitizeAiHtml(msg.result))}</div>`;
             }
             const summaryBar = document.getElementById('summaryBar');
             if (summaryBar) summaryBar.innerHTML = summaryPillsHtml(countSeverities(container.innerHTML));
@@ -328,3 +402,24 @@ function downloadMarkdown() {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+(() => {
+  const uploadArea = document.getElementById('uploadArea');
+  if (!uploadArea) return;
+
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('drag-over');
+  });
+
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('drag-over');
+  });
+
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+})();
