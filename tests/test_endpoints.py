@@ -106,6 +106,13 @@ def test_robots_txt_is_public_and_disallows_api():
     assert "Disallow: /api/" in resp.text
 
 
+def test_demo_page_is_public_without_login():
+    anon_client = TestClient(app)
+    resp = anon_client.get("/demo")
+    assert resp.status_code == 200
+    assert "demo.js" in resp.text
+
+
 def test_root_serves_app_when_authenticated():
     resp = client.get("/")
     assert resp.status_code == 200

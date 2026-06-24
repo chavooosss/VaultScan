@@ -45,6 +45,7 @@ const LANG_DICT = {
     login_subtitle: 'Devam etmek için Google hesabınla giriş yap.',
     login_error: 'Giriş başarısız oldu, lütfen tekrar deneyin.',
     login_with_google: 'Google ile Giriş Yap',
+    login_try_demo: 'Önce bir demo görmek ister misin? →',
     login_privacy_link: 'Verilerinle ne yapıyoruz?',
 
     settings_h1: "API Key'lerin",
@@ -122,6 +123,17 @@ const LANG_DICT = {
     btn_delete: 'Sil',
     confirm_delete_record: 'Bu kaydı silmek istediğine emin misin?',
     api_key_empty: 'API key boş olamaz.',
+
+    title_demo: 'VaultScan — Demo',
+    eyebrow_demo: 'Güvenlik Analiz Aracı — Demo',
+    demo_pill: 'DEMO MOD',
+    demo_sign_in: 'Giriş yap →',
+    demo_tagline: 'Gerçek bir multi-AI güvenlik raporu gör — giriş veya API key gerekmez',
+    demo_banner: 'ℹ Aşağıdakiler önceden yazılmış örnek raporlar — gerçek bir AI çağrısı yapılmıyor. Kendi kodunu analiz etmek için kendi API key\'inle giriş yap.',
+    demo_example_sql: '▶ SQL Injection örneği (Python)',
+    demo_example_secret: '▶ Sabit kodlanmış secret örneği (JavaScript)',
+    demo_code_placeholder: 'Kodu görmek için yukarıdan bir örnek seç...',
+    demo_result_placeholder: 'Örnek bir rapor görmek için yukarıdan birini seç...',
   },
   en: {
     title_index: 'VaultScan',
@@ -169,6 +181,7 @@ const LANG_DICT = {
     login_subtitle: 'Sign in with your Google account to continue.',
     login_error: 'Login failed, please try again.',
     login_with_google: 'Sign in with Google',
+    login_try_demo: 'Want to see a demo first? →',
     login_privacy_link: 'What do we do with your data?',
 
     settings_h1: 'Your API Keys',
@@ -246,6 +259,17 @@ const LANG_DICT = {
     btn_delete: 'Delete',
     confirm_delete_record: 'Are you sure you want to delete this record?',
     api_key_empty: 'API key cannot be empty.',
+
+    title_demo: 'VaultScan — Demo',
+    eyebrow_demo: 'Security Analysis Tool — Demo',
+    demo_pill: 'DEMO MODE',
+    demo_sign_in: 'Sign in →',
+    demo_tagline: 'See a real multi-AI security report — no sign-in or API key needed',
+    demo_banner: "ℹ Showing pre-written example reports below — these don't call real AI. Sign in with your own API key to analyze your own code.",
+    demo_example_sql: '▶ SQL Injection example (Python)',
+    demo_example_secret: '▶ Hardcoded secret example (JavaScript)',
+    demo_code_placeholder: 'Click an example above to load some code...',
+    demo_result_placeholder: 'Pick an example above to see a sample report...',
   },
 };
 

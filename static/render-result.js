@@ -7,6 +7,17 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+function skeletonHtml() {
+  const card = (lines) => `<div class="skeleton-card">${lines.map(w => `<div class="skeleton skeleton-line" style="width:${w}"></div>`).join('')}</div>`;
+  return `
+    <div class="skeleton-wrap">
+      <div class="skeleton skeleton-pill"></div>
+      ${card(['55%', '92%', '78%'])}
+      ${card(['40%', '85%'])}
+    </div>
+  `;
+}
+
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   if (node.tagName === 'A') {
     node.setAttribute('target', '_blank');

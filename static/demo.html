@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="title_demo">VaultScan — Demo</title>
+  <meta name="description" content="See a real multi-AI security report from VaultScan — no sign-in or API key needed.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="VaultScan — Demo">
+  <meta property="og:description" content="See a real multi-AI security report from VaultScan — no sign-in or API key needed.">
+  <meta property="og:url" content="https://vaultscan-pxyt.onrender.com/demo">
+  <meta property="og:image" content="https://vaultscan-pxyt.onrender.com/static/og-image.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/theme.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.11/dist/purify.min.js" integrity="sha384-o44XUELLEnv/iSlA1NWxBweqbD4TSR0qgq2VzVsxtkHS989JJjGKSE9vkfo5MN4K" crossorigin="anonymous"></script>
+  <script src="/static/render-result.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="user-bar" id="userBar">
+      <span class="demo-pill" data-i18n="demo_pill">DEMO MODE</span>
+      <button id="langToggle" class="logout-link" onclick="toggleLang()" aria-label="Switch language">EN</button>
+      <button id="themeToggle" class="logout-link" onclick="toggleTheme()" aria-label="Toggle color theme">☀︎</button>
+      <a href="/" class="logout-link" data-i18n="demo_sign_in">Sign in →</a>
+    </div>
+    <div class="header">
+      <span class="eyebrow"><span class="dot"></span><span data-i18n="eyebrow_demo">Security Analysis Tool — Demo</span></span>
+      <h1>VaultScan</h1>
+      <p data-i18n="demo_tagline">See a real multi-AI security report — no sign-in or API key needed</p>
+    </div>
+
+    <div class="demo-banner" data-i18n="demo_banner">ℹ Showing pre-written example reports below — these don't call real AI. Sign in with your own API key to analyze your own code.</div>
+
+    <div class="toolbar">
+      <div class="tabs">
+        <button class="tab demo-example-btn" onclick="loadExample('sql_injection')" data-i18n="demo_example_sql">▶ SQL Injection example (Python)</button>
+        <button class="tab demo-example-btn" onclick="loadExample('hardcoded_secret')" data-i18n="demo_example_secret">▶ Hardcoded secret example (JavaScript)</button>
+      </div>
+    </div>
+
+    <div class="editor">
+      <div class="panel" id="pastePanel">
+        <div class="panel-header">
+          <span data-i18n="label_code">Code</span>
+        </div>
+        <textarea id="code" readonly data-i18n-placeholder="demo_code_placeholder" placeholder="Click an example above to load some code..."></textarea>
+      </div>
+
+      <div class="panel" id="resultPanel">
+        <div class="panel-header">
+          <span id="resultTitle" data-i18n="label_result">Result</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-copy" id="copyBtn" onclick="copyResult()" style="display:none" data-i18n="btn_copy">Copy</button>
+            <span id="status"></span>
+          </div>
+        </div>
+        <div id="result" class="result" data-i18n="demo_result_placeholder">Pick an example above to see a sample report...</div>
+      </div>
+    </div>
+  </div>
+  <a href="https://shipin.city/shipped" target="_blank" rel="noopener" class="shipin-badge">
+    <img src="/static/shipin-logo.png" alt="Shipin">
+    <span>Veli Ercan · Powered by Shipin</span>
+  </a>
+  <script src="/static/demo.js"></script>
+</body>
+</html>

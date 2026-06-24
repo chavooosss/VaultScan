@@ -687,6 +687,10 @@ async def settings_page(request: Request):
 async def privacy_page():
     return FileResponse("static/privacy.html")
 
+@app.get("/demo")
+async def demo_page():
+    return FileResponse("static/demo.html")
+
 @app.get("/robots.txt")
 async def robots_txt():
     return FileResponse("static/robots.txt", media_type="text/plain")
