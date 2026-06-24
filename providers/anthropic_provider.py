@@ -1,12 +1,12 @@
 import anthropic
-from config import MODEL, MAX_TOKENS
+from config import MODEL, MAX_TOKENS, PROVIDER_TIMEOUT_SECONDS
 from prompts import SYSTEM_PROMPT, SYNTHESIS_PROMPT
 from providers.errors import ProviderNotConfigured
 
 def _client(api_key: str):
     if not api_key:
         raise ProviderNotConfigured("Claude (Anthropic) için API key girilmemiş.")
-    return anthropic.Anthropic(api_key=api_key)
+    return anthropic.Anthropic(api_key=api_key, timeout=PROVIDER_TIMEOUT_SECONDS)
 
 def analyze_code(code: str, language: str, api_key: str) -> str:
     message = _client(api_key).messages.create(

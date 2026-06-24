@@ -1,12 +1,12 @@
 from openai import OpenAI
-from config import OPENAI_MODEL, MAX_TOKENS
+from config import OPENAI_MODEL, MAX_TOKENS, PROVIDER_TIMEOUT_SECONDS
 from prompts import SYSTEM_PROMPT, SYNTHESIS_PROMPT
 from providers.errors import ProviderNotConfigured
 
 def _client(api_key: str):
     if not api_key:
         raise ProviderNotConfigured("ChatGPT (OpenAI) için API key girilmemiş.")
-    return OpenAI(api_key=api_key)
+    return OpenAI(api_key=api_key, timeout=PROVIDER_TIMEOUT_SECONDS)
 
 def analyze_code(code: str, language: str, api_key: str) -> str:
     response = _client(api_key).chat.completions.create(

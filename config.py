@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 MAX_TOKENS = 4096
+PROVIDER_TIMEOUT_SECONDS = 90
 
 MODEL = "claude-sonnet-4-6"
 OPENAI_MODEL = "gpt-4o-mini"
