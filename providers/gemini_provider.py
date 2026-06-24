@@ -1,7 +1,7 @@
 from google import genai
 from google.genai import types
 from config import GEMINI_MODEL, MAX_TOKENS, PROVIDER_TIMEOUT_SECONDS
-from prompts import SYSTEM_PROMPT, SYNTHESIS_PROMPT, with_project_context
+from prompts import get_system_prompt, get_synthesis_prompt, code_content, multi_intro, with_project_context
 from providers.errors import ProviderNotConfigured
 
 def _client(api_key: str):
@@ -18,35 +18,35 @@ def _config(system_instruction: str):
         max_output_tokens=MAX_TOKENS,
     )
 
-def analyze_code(code: str, language: str, api_key: str, project_context: str = "") -> str:
-    content = with_project_context(f"Dil: {language}\n\nKod:\n```\n{code}\n```", project_context)
+def analyze_code(code: str, language: str, api_key: str, project_context: str = "", lang: str = "tr") -> str:
+    content = with_project_context(code_content(code, language, lang), project_context)
     with _client(api_key) as client:
         response = client.models.generate_content(
             model=GEMINI_MODEL,
             contents=content,
-            config=_config(SYSTEM_PROMPT),
+            config=_config(get_system_prompt(lang)),
         )
         return response.text
 
-def analyze_multi(files: list, api_key: str, project_context: str = "") -> str:
+def analyze_multi(files: list, api_key: str, project_context: str = "", lang: str = "tr") -> str:
     parts = [f"### {f['path']}\n```\n{f['code']}\n```" for f in files]
     content = with_project_context(
-        "Aşağıdaki dosyalar birbiriyle ilişkili, birlikte analiz et:\n\n" + "\n\n".join(parts),
+        multi_intro(lang) + "\n\n".join(parts),
         project_context,
     )
     with _client(api_key) as client:
         response = client.models.generate_content(
             model=GEMINI_MODEL,
             contents=content,
-            config=_config(SYSTEM_PROMPT),
+            config=_config(get_system_prompt(lang)),
         )
         return response.text
 
-def synthesize(content: str, api_key: str) -> str:
+def synthesize(content: str, api_key: str, lang: str = "tr") -> str:
     with _client(api_key) as client:
         response = client.models.generate_content(
             model=GEMINI_MODEL,
             contents=content,
-            config=_config(SYNTHESIS_PROMPT),
+            config=_config(get_synthesis_prompt(lang)),
         )
         return response.text

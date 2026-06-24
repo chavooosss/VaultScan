@@ -132,13 +132,28 @@ def test_analyze_endpoint_returns_mocked_result():
         resp = client.post("/analyze", json={"code": "print(1)", "language": "Python"})
     assert resp.status_code == 200
     assert resp.json() == {"type": "result", "result": "<div>mocked</div>"}
-    mock_analyze.assert_called_once_with("print(1)", "Python", ["claude"], {"claude": CLAUDE_KEY})
+    mock_analyze.assert_called_once_with("print(1)", "Python", ["claude"], {"claude": CLAUDE_KEY}, lang="tr")
 
 
 def test_analyze_endpoint_default_language():
     with patch("main.analyze_code_collab", AsyncMock(return_value="ok")) as mock_analyze:
         client.post("/analyze", json={"code": "x = 1"})
-    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", ["claude"], {"claude": CLAUDE_KEY})
+    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", ["claude"], {"claude": CLAUDE_KEY}, lang="tr")
+
+
+def test_analyze_endpoint_respects_x_lang_header():
+    with patch("main.analyze_code_collab", AsyncMock(return_value="ok")) as mock_analyze:
+        client.post("/analyze", json={"code": "x = 1"}, headers={"X-Lang": "en"})
+    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", ["claude"], {"claude": CLAUDE_KEY}, lang="en")
+
+
+def test_analyze_endpoint_returns_english_error_when_x_lang_is_en():
+    resp = client.post(
+        "/analyze",
+        json={"code": "x = 1", "providers": ["chatgpt"]},
+        headers={"X-Lang": "en"},
+    )
+    assert "Settings page" in resp.json()["error"]
 
 
 def test_analyze_endpoint_saves_history_when_enabled():
@@ -234,7 +249,7 @@ def test_analyze_endpoint_explicit_providers_passed_through():
     with patch("main.analyze_code_collab", AsyncMock(return_value="<div>gpt</div>")) as mock_analyze:
         resp = client.post("/analyze", json={"code": "x = 1", "providers": ["chatgpt"]})
     assert resp.json() == {"type": "result", "result": "<div>gpt</div>"}
-    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", ["chatgpt"], {"chatgpt": CHATGPT_KEY})
+    mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", ["chatgpt"], {"chatgpt": CHATGPT_KEY}, lang="tr")
 
 
 def test_analyze_endpoint_multi_provider_list_passed_through():
@@ -246,6 +261,7 @@ def test_analyze_endpoint_multi_provider_list_passed_through():
     mock_analyze.assert_called_once_with(
         "x = 1", "otomatik tespit", ["claude", "chatgpt", "gemini"],
         {"claude": CLAUDE_KEY, "chatgpt": CHATGPT_KEY, "gemini": GEMINI_KEY},
+        lang="tr",
     )
 
 
@@ -269,7 +285,7 @@ def test_upload_single_file():
     assert data["type"] == "result"
     assert data["result_type"] == "file"
     assert data["result"] == "<div>single</div>"
-    mock_analyze.assert_called_once_with("print('hi')", "PY", ["claude"], {"claude": CLAUDE_KEY})
+    mock_analyze.assert_called_once_with("print('hi')", "PY", ["claude"], {"claude": CLAUDE_KEY}, lang="tr")
 
 
 def test_upload_single_file_saves_history():
@@ -336,7 +352,7 @@ def test_upload_comma_separated_providers_parsed_into_list():
         )
     assert resp.json()["result"] == "<div>multi-ai</div>"
     mock_analyze.assert_called_once_with(
-        "print('hi')", "PY", ["claude", "chatgpt"], {"claude": CLAUDE_KEY, "chatgpt": CHATGPT_KEY}
+        "print('hi')", "PY", ["claude", "chatgpt"], {"claude": CLAUDE_KEY, "chatgpt": CHATGPT_KEY}, lang="tr"
     )
 
 

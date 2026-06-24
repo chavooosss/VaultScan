@@ -30,11 +30,11 @@ function countSeverities(html) {
 }
 
 function summaryPillsHtml(counts) {
-  const labels = { critical: 'Kritik', high: 'Yüksek', medium: 'Orta', low: 'Düşük' };
+  const labels = { critical: t('severity_critical'), high: t('severity_high'), medium: t('severity_medium'), low: t('severity_low') };
   const total = counts.critical + counts.high + counts.medium + counts.low;
 
   if (total === 0) {
-    return '<span class="summary-clean">✓ Kritik bulgu yok</span>';
+    return `<span class="summary-clean">${t('summary_clean')}</span>`;
   }
 
   const pills = Object.keys(labels)
@@ -42,7 +42,7 @@ function summaryPillsHtml(counts) {
     .map(key => `<span class="summary-pill summary-${key}"><strong>${counts[key]}</strong> ${labels[key]}</span>`)
     .join('');
 
-  return `<span class="summary-pill summary-total"><strong>${total}</strong> Bulgu</span>${pills}`;
+  return `<span class="summary-pill summary-total"><strong>${total}</strong> ${t('summary_finding_label')}</span>${pills}`;
 }
 
 function severityBarSegments(counts) {
@@ -80,9 +80,9 @@ function injectLineChips(html) {
 
     const paragraphs = Array.from(body.querySelectorAll('p'));
 
-    const lineP = paragraphs.find(p => p.textContent.includes('Satır:'));
+    const lineP = paragraphs.find(p => p.textContent.includes('Satır:') || p.textContent.includes('Line:'));
     if (lineP) {
-      const match = lineP.textContent.match(/Satır:\s*(.+)/);
+      const match = lineP.textContent.match(/(?:Satır|Line):\s*(.+)/);
       const value = match ? match[1].trim() : '';
       if (value && !/^n\/?a$/i.test(value)) {
         const chip = document.createElement('span');
@@ -92,7 +92,7 @@ function injectLineChips(html) {
       }
     }
 
-    const detectedByP = paragraphs.find(p => p.textContent.includes('Tespit eden'));
+    const detectedByP = paragraphs.find(p => p.textContent.includes('Tespit eden') || p.textContent.includes('Detected by'));
     if (detectedByP) {
       let markup = detectedByP.innerHTML;
       PROVIDER_TAG_PATTERNS.forEach(({ re, cls, label }) => {

@@ -1,4 +1,4 @@
-SYSTEM_PROMPT = """Sen bir güvenlik uzmanısın. Sana verilen kodu analiz edeceksin.
+SYSTEM_PROMPT_TR = """Sen bir güvenlik uzmanısın. Sana verilen kodu analiz edeceksin.
 
 Şunları tespit et ve raporla:
 - Güvenlik açıkları (SQL injection, XSS, hardcoded secret/token/key, path traversal, command injection vb.)
@@ -36,10 +36,45 @@ Eğer kod temizse:
 
 Türkçe yanıt ver. Sadece HTML çıktı ver, başka açıklama ekleme."""
 
-def with_project_context(content: str, project_context: str = "") -> str:
-    return f"{project_context}\n\n{content}" if project_context else content
+SYSTEM_PROMPT_EN = """You are a security expert. You will analyze the code given to you.
 
-SYNTHESIS_PROMPT = """Sen birden fazla yapay zeka modelinin aynı kod üzerinde yaptığı güvenlik analizlerini birleştiren bir uzmansın.
+Detect and report:
+- Security vulnerabilities (SQL injection, XSS, hardcoded secrets/tokens/keys, path traversal, command injection, etc.)
+- Logic errors
+- Code quality issues
+- Unsafe library usage
+
+For each finding, respond STRICTLY in this HTML format:
+
+<div class="finding">
+<div class="finding-header">
+<span class="finding-title">FINDING NAME</span>
+<span class="badge badge-SEVERITY">SEVERITY</span>
+</div>
+<div class="finding-body">
+<p><strong>Line:</strong> line number or N/A</p>
+<p><strong>Description:</strong> What's wrong?</p>
+<p><strong>Recommendation:</strong> How to fix it?</p>
+</div>
+</div>
+
+SEVERITY values: critical, high, medium, low, info
+badge-SEVERITY example: badge-critical, badge-high, badge-medium, badge-low, badge-info
+
+If the code is clean:
+<div class="finding">
+<div class="finding-header">
+<span class="finding-title">✓ Code Clean</span>
+<span class="badge badge-info">INFO</span>
+</div>
+<div class="finding-body">
+<p>No serious security vulnerabilities were detected.</p>
+</div>
+</div>
+
+Respond in English. Output HTML only, no other explanation."""
+
+SYNTHESIS_PROMPT_TR = """Sen birden fazla yapay zeka modelinin aynı kod üzerinde yaptığı güvenlik analizlerini birleştiren bir uzmansın.
 
 Sana farklı AI modellerinin (Claude, ChatGPT, Gemini gibi) aynı kod için ürettiği analiz sonuçları verilecek. Görevin:
 - Aynı güvenlik açığını işaret eden bulguları TEK bir bulguya birleştir.
@@ -77,3 +112,75 @@ Eğer hiçbir modelde ciddi bir bulgu yoksa:
 </div>
 
 Türkçe yanıt ver. Sadece HTML çıktı ver, başka açıklama ekleme."""
+
+SYNTHESIS_PROMPT_EN = """You are an expert who merges security analyses produced by multiple AI models on the same code.
+
+You will be given analysis results that different AI models (such as Claude, ChatGPT, Gemini) produced for the same code. Your task:
+- Merge findings that point to the same security vulnerability into a SINGLE finding.
+- For each merged finding, state which model(s) detected it; multiple models finding the same issue indicates higher confidence.
+- Don't discard findings that only one model caught and the others missed — these are valuable too, include them.
+- If models disagree (one says critical, another says minor), mention this in the description.
+
+For each finding, respond STRICTLY in this HTML format:
+
+<div class="finding">
+<div class="finding-header">
+<span class="finding-title">FINDING NAME</span>
+<span class="badge badge-SEVERITY">SEVERITY</span>
+</div>
+<div class="finding-body">
+<p><strong>Line:</strong> line number or N/A</p>
+<p><strong>Description:</strong> What's wrong?</p>
+<p><strong>Recommendation:</strong> How to fix it?</p>
+<p><strong>Detected by:</strong> Model(s) that reported this finding (e.g. Claude, ChatGPT)</p>
+</div>
+</div>
+
+SEVERITY values: critical, high, medium, low, info
+badge-SEVERITY example: badge-critical, badge-high, badge-medium, badge-low, badge-info
+
+If no model found anything serious:
+<div class="finding">
+<div class="finding-header">
+<span class="finding-title">✓ Code Clean</span>
+<span class="badge badge-info">INFO</span>
+</div>
+<div class="finding-body">
+<p>No serious security vulnerabilities were detected by any model.</p>
+</div>
+</div>
+
+Respond in English. Output HTML only, no other explanation."""
+
+SYSTEM_PROMPTS = {"tr": SYSTEM_PROMPT_TR, "en": SYSTEM_PROMPT_EN}
+SYNTHESIS_PROMPTS = {"tr": SYNTHESIS_PROMPT_TR, "en": SYNTHESIS_PROMPT_EN}
+
+# Geriye dönük uyumluluk (varsayılan dil: tr)
+SYSTEM_PROMPT = SYSTEM_PROMPT_TR
+SYNTHESIS_PROMPT = SYNTHESIS_PROMPT_TR
+
+CONTENT_TEMPLATES = {
+    "tr": {
+        "code": "Dil: {language}\n\nKod:\n```\n{code}\n```",
+        "multi_intro": "Aşağıdaki dosyalar birbiriyle ilişkili, birlikte analiz et:\n\n",
+    },
+    "en": {
+        "code": "Language: {language}\n\nCode:\n```\n{code}\n```",
+        "multi_intro": "The following files are related — analyze them together:\n\n",
+    },
+}
+
+def get_system_prompt(lang: str = "tr") -> str:
+    return SYSTEM_PROMPTS.get(lang, SYSTEM_PROMPT_TR)
+
+def get_synthesis_prompt(lang: str = "tr") -> str:
+    return SYNTHESIS_PROMPTS.get(lang, SYNTHESIS_PROMPT_TR)
+
+def code_content(code: str, language: str, lang: str = "tr") -> str:
+    return CONTENT_TEMPLATES.get(lang, CONTENT_TEMPLATES["tr"])["code"].format(language=language, code=code)
+
+def multi_intro(lang: str = "tr") -> str:
+    return CONTENT_TEMPLATES.get(lang, CONTENT_TEMPLATES["tr"])["multi_intro"]
+
+def with_project_context(content: str, project_context: str = "") -> str:
+    return f"{project_context}\n\n{content}" if project_context else content

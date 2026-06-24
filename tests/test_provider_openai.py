@@ -4,6 +4,7 @@ import pytest
 
 from providers import openai_provider
 from providers.errors import ProviderNotConfigured
+import prompts
 
 
 def _mock_client(text):
@@ -49,8 +50,18 @@ def test_synthesize_uses_synthesis_prompt_as_system():
 
     assert result == "<div>synthesized</div>"
     kwargs = client.chat.completions.create.call_args.kwargs
-    assert kwargs["messages"][0] == {"role": "system", "content": openai_provider.SYNTHESIS_PROMPT}
+    assert kwargs["messages"][0] == {"role": "system", "content": prompts.SYNTHESIS_PROMPT_TR}
     assert "Claude analizi" in kwargs["messages"][1]["content"]
+
+
+def test_analyze_code_uses_english_prompt_when_lang_is_en():
+    client = _mock_client("<div>clean</div>")
+    with patch.object(openai_provider, "_client", return_value=client):
+        openai_provider.analyze_code("print(1)", "Python", api_key="sk-test", lang="en")
+
+    kwargs = client.chat.completions.create.call_args.kwargs
+    assert kwargs["messages"][0] == {"role": "system", "content": prompts.SYSTEM_PROMPT_EN}
+    assert "Language: Python" in kwargs["messages"][1]["content"]
 
 
 def test_missing_api_key_raises_provider_not_configured():

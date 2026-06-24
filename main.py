@@ -26,6 +26,7 @@ from db import (
     severity_counts_str,
 )
 from config import SESSION_SECRET
+from i18n import t, get_lang
 import json
 
 logger = logging.getLogger("vaultscan")
@@ -79,11 +80,11 @@ def check_rate_limit(key: str, max_requests: int = ANALYSIS_RATE_LIMIT, window_s
         bucket.append(now)
         return True
 
-def rate_limit_error(http_request: Request, route_name: str) -> str | None:
+def rate_limit_error(http_request: Request, route_name: str, lang: str = "tr") -> str | None:
     user_id = http_request.session.get("user_id")
     key = f"{route_name}:user:{user_id}" if user_id else f"{route_name}:ip:{http_request.client.host}"
     if not check_rate_limit(key):
-        return "Çok fazla istek gönderdiniz. Lütfen bir dakika bekleyip tekrar deneyin."
+        return t(lang, "rate_limited")
     return None
 
 # Kritik dosya isimleri — önce bunlar analiz edilir
@@ -129,8 +130,20 @@ def group_files_by_context(files: list) -> list[list]:
 
     return groups
 
-def build_project_context(repo_label: str, paths: list[str]) -> str:
+def build_project_context(repo_label: str, paths: list[str], lang: str = "tr") -> str:
     tree = "\n".join(paths)
+    if lang == "en":
+        if len(tree) > MAX_PROJECT_TREE_CHARS:
+            truncated = tree[:MAX_PROJECT_TREE_CHARS]
+            tree = truncated.rsplit("\n", 1)[0] + "\n... (rest truncated)"
+        return (
+            f"[Project structure — {repo_label}]\n"
+            f"Relevant files in this repo:\n{tree}\n\n"
+            "The file(s) below are part of this project. When analyzing, don't just look "
+            "at this piece in isolation — also consider the project's overall structure; "
+            "for example, try to infer from the file names how a function/input you see "
+            "here might be called from other files, and what the project's purpose is."
+        )
     if len(tree) > MAX_PROJECT_TREE_CHARS:
         truncated = tree[:MAX_PROJECT_TREE_CHARS]
         tree = truncated.rsplit("\n", 1)[0] + "\n... (devamı kısaltıldı)"
@@ -214,26 +227,26 @@ def get_or_create_csrf_token(http_request: Request) -> str:
         http_request.session["csrf_token"] = token
     return token
 
-def verify_csrf(http_request: Request) -> str | None:
+def verify_csrf(http_request: Request, lang: str = "tr") -> str | None:
     session_token = http_request.session.get("csrf_token")
     header_token = http_request.headers.get("x-csrf-token", "")
     if not session_token or not secrets.compare_digest(session_token, header_token):
-        return "Güvenlik doğrulaması başarısız (CSRF). Sayfayı yenileyip tekrar deneyin."
+        return t(lang, "csrf_failed")
     return None
 
-def validate_provider(provider: str, user: User) -> str | None:
+def validate_provider(provider: str, user: User, lang: str = "tr") -> str | None:
     if provider not in PROVIDERS:
-        return f"Bilinmeyen AI sağlayıcı: {provider}"
+        return t(lang, "unknown_provider", provider=provider)
     if not get_user_api_key(user, provider):
         label = PROVIDER_LABELS.get(provider, provider)
-        return f"{label} için kendi API key'inizi eklemediniz. Ayarlar sayfasından ekleyebilirsiniz."
+        return t(lang, "missing_api_key", label=label)
     return None
 
-def validate_providers(providers: list[str], user: User) -> str | None:
+def validate_providers(providers: list[str], user: User, lang: str = "tr") -> str | None:
     if not providers:
-        return "En az bir AI seçmelisiniz."
+        return t(lang, "select_at_least_one_provider")
     for provider in providers:
-        error = validate_provider(provider, user)
+        error = validate_provider(provider, user, lang)
         if error:
             return error
     return None
@@ -243,18 +256,19 @@ def build_api_keys(providers: list[str], user: User) -> dict:
 
 @app.post("/analyze")
 async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = Depends(get_db)):
+    lang = get_lang(http_request)
     user = get_current_user(http_request, db)
     if user is None:
-        return {"error": "Giriş yapmanız gerekiyor."}
-    rate_error = rate_limit_error(http_request, "analyze")
+        return {"error": t(lang, "login_required")}
+    rate_error = rate_limit_error(http_request, "analyze", lang)
     if rate_error:
         return {"error": rate_error}
-    csrf_error = verify_csrf(http_request)
+    csrf_error = verify_csrf(http_request, lang)
     if csrf_error:
         return {"error": csrf_error}
     if len(request.code) > MAX_PASTE_LENGTH:
-        return {"error": f"Kod çok büyük (maks {MAX_PASTE_LENGTH:,} karakter). Büyük dosyalar için dosya/zip yükleme sekmesini kullan."}
-    error = validate_providers(request.providers, user)
+        return {"error": t(lang, "code_too_large", max_len=f"{MAX_PASTE_LENGTH:,}")}
+    error = validate_providers(request.providers, user, lang)
     if error:
         return {"error": error}
     api_keys = build_api_keys(request.providers, user)
@@ -263,34 +277,36 @@ async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = 
         try:
             result = None
             async for kind, payload in run_with_heartbeat(
-                analyze_code_collab(request.code, request.language, request.providers, api_keys)
+                analyze_code_collab(request.code, request.language, request.providers, api_keys, lang=lang)
             ):
                 if kind == "ping":
                     yield json.dumps({"type": "ping"}) + "\n"
                 else:
                     result = payload
         except Exception as e:
-            yield json.dumps({"type": "error", "message": f"Analiz hatası: {e}"}) + "\n"
+            yield json.dumps({"type": "error", "message": t(lang, "analysis_error", error=e)}) + "\n"
             return
+        source_label = "Pasted code" if lang == "en" else "Yapıştırılan kod"
         if user.history_enabled:
-            save_analysis(db, user, request.providers, "paste", "Yapıştırılan kod", result, severity_counts_str(result))
+            save_analysis(db, user, request.providers, "paste", source_label, result, severity_counts_str(result))
         yield json.dumps({"type": "result", "result": result}) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 @app.post("/upload")
 async def upload_file(http_request: Request, file: UploadFile = File(...), providers: str = Form(DEFAULT_PROVIDER), db: Session = Depends(get_db)):
+    lang = get_lang(http_request)
     user = get_current_user(http_request, db)
     if user is None:
-        return {"error": "Giriş yapmanız gerekiyor."}
-    rate_error = rate_limit_error(http_request, "upload")
+        return {"error": t(lang, "login_required")}
+    rate_error = rate_limit_error(http_request, "upload", lang)
     if rate_error:
         return {"error": rate_error}
-    csrf_error = verify_csrf(http_request)
+    csrf_error = verify_csrf(http_request, lang)
     if csrf_error:
         return {"error": csrf_error}
     provider_list = [p.strip() for p in providers.split(",") if p.strip()]
-    error = validate_providers(provider_list, user)
+    error = validate_providers(provider_list, user, lang)
     if error:
         return {"error": error}
     api_keys = build_api_keys(provider_list, user)
@@ -299,7 +315,7 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
     content = await file.read()
 
     if len(content) > MAX_UPLOAD_SIZE:
-        return {"error": f"Dosya çok büyük (maks {MAX_UPLOAD_SIZE // (1024*1024)} MB)."}
+        return {"error": t(lang, "file_too_large", mb=MAX_UPLOAD_SIZE // (1024*1024))}
 
     is_zip = filename.endswith(".zip")
 
@@ -334,11 +350,11 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
                     continue
 
         if not file_contents:
-            return {"error": "Zip içinde desteklenen dosya bulunamadı."}
+            return {"error": t(lang, "no_supported_files_in_zip")}
     else:
         ext = "." + filename.split(".")[-1].lower() if "." in filename else ""
         if ext not in SUPPORTED_EXTENSIONS:
-            return {"error": f"Desteklenmeyen dosya formatı: {ext}"}
+            return {"error": t(lang, "unsupported_file_format", ext=ext)}
         code = content.decode("utf-8", errors="ignore")
         language = filename.split(".")[-1].upper() if "." in filename else "otomatik tespit"
         file_contents = [{"path": filename, "code": code, "language": language, "size": len(code)}]
@@ -351,8 +367,8 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
             is_multi = len(group) > 1
             try:
                 coro = (
-                    analyze_multi_collab(group, provider_list, api_keys) if is_multi
-                    else analyze_code_collab(group[0]['code'], group[0]['language'], provider_list, api_keys)
+                    analyze_multi_collab(group, provider_list, api_keys, lang=lang) if is_multi
+                    else analyze_code_collab(group[0]['code'], group[0]['language'], provider_list, api_keys, lang=lang)
                 )
                 result = None
                 async for kind, payload in run_with_heartbeat(coro):
@@ -361,7 +377,7 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
                     else:
                         result = payload
             except Exception as e:
-                result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
+                result = f"<p class=\"error-text\">{t(lang, 'analysis_error', error=e)}</p>"
 
             if is_multi:
                 for item in group:
@@ -382,20 +398,21 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
 
 @app.post("/github")
 async def analyze_github(request: GithubRequest, http_request: Request, db: Session = Depends(get_db)):
+    lang = get_lang(http_request)
     user = get_current_user(http_request, db)
     if user is None:
-        return {"error": "Giriş yapmanız gerekiyor."}
-    rate_error = rate_limit_error(http_request, "github")
+        return {"error": t(lang, "login_required")}
+    rate_error = rate_limit_error(http_request, "github", lang)
     if rate_error:
         return {"error": rate_error}
-    csrf_error = verify_csrf(http_request)
+    csrf_error = verify_csrf(http_request, lang)
     if csrf_error:
         return {"error": csrf_error}
     owner, repo = parse_github_url(request.url)
     if not owner or not repo:
-        return {"error": "Geçersiz GitHub URL'i."}
+        return {"error": t(lang, "invalid_github_url")}
 
-    provider_error = validate_providers(request.providers, user)
+    provider_error = validate_providers(request.providers, user, lang)
     if provider_error:
         return {"error": provider_error}
 
@@ -407,14 +424,14 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
 
     def github_error_message(resp) -> str:
         if resp.status_code == 401:
-            return "GitHub token geçersiz veya süresi dolmuş."
+            return t(lang, "github_token_invalid")
         if resp.status_code == 403:
             if resp.headers.get("X-RateLimit-Remaining") == "0":
-                return "GitHub API rate limit'e ulaşıldı. Birkaç dakika sonra tekrar deneyin veya bir token ekleyin."
-            return "Bu repoya erişim izniniz yok."
+                return t(lang, "github_rate_limited")
+            return t(lang, "github_access_denied")
         if resp.status_code == 404:
-            return f"Repo bulunamadı: {owner}/{repo}. Private bir repoysa token girmeniz gerekebilir."
-        return f"GitHub API hatası (HTTP {resp.status_code})."
+            return t(lang, "github_repo_not_found", owner=owner, repo=repo)
+        return t(lang, "github_api_error", status=resp.status_code)
 
     async def stream():
         try:
@@ -438,10 +455,10 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
 
                 files.sort(key=lambda f: score_file(f["path"]), reverse=True)
                 files = files[:max(1, min(request.max_files, MAX_GITHUB_FILES))]
-                project_context = build_project_context(f"{owner}/{repo}", [f["path"] for f in files])
+                project_context = build_project_context(f"{owner}/{repo}", [f["path"] for f in files], lang)
 
                 if not files:
-                    yield json.dumps({"type": "error", "message": "Desteklenen dosya bulunamadı."}) + "\n"
+                    yield json.dumps({"type": "error", "message": t(lang, "no_supported_files_found")}) + "\n"
                     return
 
                 total = len(files)
@@ -450,7 +467,7 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
                 file_contents = []
                 for i, f in enumerate(files):
                     raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{f['path']}"
-                    yield json.dumps({"type": "progress", "current": i + 1, "total": total, "file": f["path"], "phase": "indiriliyor"}) + "\n"
+                    yield json.dumps({"type": "progress", "current": i + 1, "total": total, "file": f["path"], "phase": t(lang, "phase_downloading")}) + "\n"
                     try:
                         resp = await client.get(raw_url, headers=headers)
                         if resp.status_code == 200:
@@ -464,7 +481,7 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
                         continue
 
                 if not file_contents:
-                    yield json.dumps({"type": "error", "message": "Hiçbir dosya indirilemedi. Bağlantınızı kontrol edip tekrar deneyin."}) + "\n"
+                    yield json.dumps({"type": "error", "message": t(lang, "no_files_downloaded")}) + "\n"
                     return
 
                 groups = group_files_by_context(file_contents)
@@ -473,15 +490,15 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
 
                 for group in groups:
                     is_multi = len(group) > 1
-                    label = f"📦 {group[0]['path']} + {len(group)-1} dosya" if is_multi else group[0]["path"]
-                    phase = "birlikte analiz ediliyor" if is_multi else "analiz ediliyor"
+                    label = f"📦 {group[0]['path']} {t(lang, 'and_n_more_files', n=len(group)-1)}" if is_multi else group[0]["path"]
+                    phase = t(lang, "phase_analyzing_together") if is_multi else t(lang, "phase_analyzing")
                     progress_file = ", ".join(g["path"] for g in group) if is_multi else group[0]["path"]
 
                     yield json.dumps({"type": "progress", "current": analyzed + 1, "total": len(file_contents), "file": progress_file, "phase": phase}) + "\n"
                     try:
                         coro = (
-                            analyze_multi_collab(group, request.providers, api_keys, project_context) if is_multi
-                            else analyze_code_collab(group[0]["code"], group[0]["language"], request.providers, api_keys, project_context)
+                            analyze_multi_collab(group, request.providers, api_keys, project_context, lang=lang) if is_multi
+                            else analyze_code_collab(group[0]["code"], group[0]["language"], request.providers, api_keys, project_context, lang=lang)
                         )
                         result = None
                         async for kind, payload in run_with_heartbeat(coro):
@@ -490,7 +507,7 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
                             else:
                                 result = payload
                     except Exception as e:
-                        result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
+                        result = f"<p class=\"error-text\">{t(lang, 'analysis_error', error=e)}</p>"
                     yield json.dumps({"type": "result", "file": label, "result": result}) + "\n"
                     history_results.append({"file": label, "result": result})
                     analyzed += len(group)
@@ -501,9 +518,9 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
 
                 yield json.dumps({"type": "done"}) + "\n"
         except httpx.TimeoutException:
-            yield json.dumps({"type": "error", "message": "GitHub'a bağlanırken zaman aşımı oluştu. Tekrar deneyin."}) + "\n"
+            yield json.dumps({"type": "error", "message": t(lang, "github_timeout")}) + "\n"
         except httpx.RequestError as e:
-            yield json.dumps({"type": "error", "message": f"Bağlantı hatası: {e}"}) + "\n"
+            yield json.dumps({"type": "error", "message": t(lang, "connection_error", error=e)}) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 
@@ -553,44 +570,48 @@ async def me(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/api/keys")
 async def get_keys(request: Request, db: Session = Depends(get_db)):
+    lang = get_lang(request)
     user = get_current_user(request, db)
     if user is None:
-        return {"error": "Giriş yapmanız gerekiyor."}
+        return {"error": t(lang, "login_required")}
     return {p: bool(get_user_api_key(user, p)) for p in PROVIDERS}
 
 @app.post("/api/keys")
 async def save_key(request: ApiKeyRequest, http_request: Request, db: Session = Depends(get_db)):
+    lang = get_lang(http_request)
     user = get_current_user(http_request, db)
     if user is None:
-        return {"error": "Giriş yapmanız gerekiyor."}
-    csrf_error = verify_csrf(http_request)
+        return {"error": t(lang, "login_required")}
+    csrf_error = verify_csrf(http_request, lang)
     if csrf_error:
         return {"error": csrf_error}
     if request.provider not in PROVIDERS:
-        return {"error": f"Bilinmeyen AI sağlayıcı: {request.provider}"}
+        return {"error": t(lang, "unknown_provider", provider=request.provider)}
     if not request.api_key.strip():
-        return {"error": "API key boş olamaz."}
+        return {"error": t(lang, "api_key_empty")}
     set_user_api_key(db, user, request.provider, request.api_key.strip())
     return {"ok": True}
 
 @app.delete("/api/keys/{provider}")
 async def delete_key(provider: str, request: Request, db: Session = Depends(get_db)):
+    lang = get_lang(request)
     user = get_current_user(request, db)
     if user is None:
-        return {"error": "Giriş yapmanız gerekiyor."}
-    csrf_error = verify_csrf(request)
+        return {"error": t(lang, "login_required")}
+    csrf_error = verify_csrf(request, lang)
     if csrf_error:
         return {"error": csrf_error}
     if provider not in PROVIDERS:
-        return {"error": f"Bilinmeyen AI sağlayıcı: {provider}"}
+        return {"error": t(lang, "unknown_provider", provider=provider)}
     clear_user_api_key(db, user, provider)
     return {"ok": True}
 
 @app.get("/api/history")
 async def list_history(request: Request, db: Session = Depends(get_db)):
+    lang = get_lang(request)
     user = get_current_user(request, db)
     if user is None:
-        return {"error": "Giriş yapmanız gerekiyor."}
+        return {"error": t(lang, "login_required")}
     history = get_user_history(db, user)
     return {
         "history_enabled": user.history_enabled,
@@ -609,10 +630,11 @@ async def list_history(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/api/history/toggle")
 async def toggle_history(request: HistoryToggleRequest, http_request: Request, db: Session = Depends(get_db)):
+    lang = get_lang(http_request)
     user = get_current_user(http_request, db)
     if user is None:
-        return {"error": "Giriş yapmanız gerekiyor."}
-    csrf_error = verify_csrf(http_request)
+        return {"error": t(lang, "login_required")}
+    csrf_error = verify_csrf(http_request, lang)
     if csrf_error:
         return {"error": csrf_error}
     set_history_enabled(db, user, request.enabled)
@@ -620,12 +642,13 @@ async def toggle_history(request: HistoryToggleRequest, http_request: Request, d
 
 @app.get("/api/history/{analysis_id}")
 async def get_history_item(analysis_id: int, request: Request, db: Session = Depends(get_db)):
+    lang = get_lang(request)
     user = get_current_user(request, db)
     if user is None:
-        return {"error": "Giriş yapmanız gerekiyor."}
+        return {"error": t(lang, "login_required")}
     analysis = get_analysis_by_id(db, user, analysis_id)
     if analysis is None:
-        return {"error": "Kayıt bulunamadı."}
+        return {"error": t(lang, "record_not_found")}
     return {
         "id": analysis.id,
         "created_at": analysis.created_at.isoformat(),
@@ -637,14 +660,15 @@ async def get_history_item(analysis_id: int, request: Request, db: Session = Dep
 
 @app.delete("/api/history/{analysis_id}")
 async def delete_history_item(analysis_id: int, request: Request, db: Session = Depends(get_db)):
+    lang = get_lang(request)
     user = get_current_user(request, db)
     if user is None:
-        return {"error": "Giriş yapmanız gerekiyor."}
-    csrf_error = verify_csrf(request)
+        return {"error": t(lang, "login_required")}
+    csrf_error = verify_csrf(request, lang)
     if csrf_error:
         return {"error": csrf_error}
     if not delete_analysis(db, user, analysis_id):
-        return {"error": "Kayıt bulunamadı."}
+        return {"error": t(lang, "record_not_found")}
     return {"ok": True}
 
 @app.get("/")

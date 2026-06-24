@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VaultScan — Gizlilik</title>
+  <title data-i18n="title_privacy">VaultScan — Gizlilik</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/theme.js"></script>
+  <script src="/static/i18n.js"></script>
   <style>
     .privacy-container { max-width: 640px; height: auto; min-height: 100vh; overflow-y: auto; }
     .privacy-section { margin-bottom: 22px; }
@@ -25,59 +26,63 @@
       color: var(--text-tertiary);
       margin-top: 28px;
     }
+    .privacy-top-bar { display:flex; align-items:center; justify-content:space-between; }
   </style>
 </head>
 <body>
   <div class="container privacy-container">
-    <a href="/" class="back-link">← Ana sayfaya dön</a>
+    <div class="privacy-top-bar">
+      <a href="/" class="back-link" data-i18n="back_to_home">← Ana sayfaya dön</a>
+      <button id="langToggle" class="logout-link" onclick="toggleLang()">EN</button>
+    </div>
     <div class="header" style="text-align:left; padding-top:18px;">
-      <span class="eyebrow"><span class="dot"></span>Gizlilik</span>
-      <h1 style="font-size:22px;">Verilerinle ne yapıyoruz?</h1>
+      <span class="eyebrow"><span class="dot"></span><span data-i18n="eyebrow_privacy">Gizlilik</span></span>
+      <h1 style="font-size:22px;" data-i18n="privacy_h1">Verilerinle ne yapıyoruz?</h1>
     </div>
 
     <div class="privacy-section">
-      <h2>Google ile girişte ne alıyoruz</h2>
-      <p>Sadece Google hesabından gelen ad, e-posta adresi ve profil fotoğrafı bağlantısı. Şifreni hiçbir zaman görmüyoruz — giriş tamamen Google üzerinden yapılır.</p>
+      <h2 data-i18n="privacy_google_h2">Google ile girişte ne alıyoruz</h2>
+      <p data-i18n="privacy_google_p">Sadece Google hesabından gelen ad, e-posta adresi ve profil fotoğrafı bağlantısı. Şifreni hiçbir zaman görmüyoruz — giriş tamamen Google üzerinden yapılır.</p>
     </div>
 
     <div class="privacy-section">
-      <h2>AI API key'lerin</h2>
-      <p>VaultScan kendi AI key'ini kullanmaz — Claude/ChatGPT/Gemini için girdiğin key'ler senindir ve veritabanında <strong>şifrelenmiş</strong> olarak saklanır. Hiçbir ekranda veya API yanıtında düz metin olarak geri gösterilmez. İstediğin zaman Ayarlar sayfasından silebilirsin.</p>
+      <h2 data-i18n="privacy_keys_h2">AI API key'lerin</h2>
+      <p data-i18n-html="privacy_keys_p">VaultScan kendi AI key'ini kullanmaz — Claude/ChatGPT/Gemini için girdiğin key'ler senindir ve veritabanında <strong>şifrelenmiş</strong> olarak saklanır. Hiçbir ekranda veya API yanıtında düz metin olarak geri gösterilmez. İstediğin zaman Ayarlar sayfasından silebilirsin.</p>
     </div>
 
     <div class="privacy-section">
-      <h2>Analiz ettiğin kod ne olur</h2>
-      <p>VaultScan, yapıştırdığın/yüklediğin kodu veya GitHub repo içeriğini <strong>kendi sunucusunda saklamaz</strong>. Kod, seçtiğin AI sağlayıcısına (Claude/ChatGPT/Gemini) senin kendi API key'inle iletilir ve analiz orada yapılır.</p>
-      <p style="margin-top:8px;">Bu nedenle gerçekten gizli/hassas kod paylaşıyorsan, seçtiğin AI sağlayıcının kendi gizlilik politikasını da göz önünde bulundur — o aşamada veri o sağlayıcının sunucularında işlenir.</p>
+      <h2 data-i18n="privacy_code_h2">Analiz ettiğin kod ne olur</h2>
+      <p data-i18n-html="privacy_code_p1">VaultScan, yapıştırdığın/yüklediğin kodu veya GitHub repo içeriğini <strong>kendi sunucusunda saklamaz</strong>. Kod, seçtiğin AI sağlayıcısına (Claude/ChatGPT/Gemini) senin kendi API key'inle iletilir ve analiz orada yapılır.</p>
+      <p style="margin-top:8px;" data-i18n="privacy_code_p2">Bu nedenle gerçekten gizli/hassas kod paylaşıyorsan, seçtiğin AI sağlayıcının kendi gizlilik politikasını da göz önünde bulundur — o aşamada veri o sağlayıcının sunucularında işlenir.</p>
     </div>
 
     <div class="privacy-section">
-      <h2>Analiz geçmişi</h2>
-      <p>AI'nin ürettiği <strong>rapor/bulgular</strong> (hangi açıklar bulundu, hangi AI(ler) tespit etti, ne zaman yapıldı) hesabınla ilişkilendirilip <a href="/history">Geçmiş</a> sayfasında saklanır — bu sayede eski analizlerine dönüp bakabilirsin. Analiz ettiğin <strong>kodun/dosyanın/repo içeriğinin kendisi bu kayda dahil değildir</strong>, yukarıdaki maddede anlatıldığı gibi hiçbir zaman sunucumuzda tutulmaz.</p>
-      <p style="margin-top:8px;">Bu özelliği Ayarlar sayfasından istediğin zaman kapatabilirsin; kapattığında yeni analizler kaydedilmez. Geçmiş sayfasından tek tek kayıt da silebilirsin.</p>
+      <h2 data-i18n="privacy_history_h2">Analiz geçmişi</h2>
+      <p data-i18n-html="privacy_history_p1">AI'nin ürettiği <strong>rapor/bulgular</strong> (hangi açıklar bulundu, hangi AI(ler) tespit etti, ne zaman yapıldı) hesabınla ilişkilendirilip <a href="/history">Geçmiş</a> sayfasında saklanır — bu sayede eski analizlerine dönüp bakabilirsin. Analiz ettiğin <strong>kodun/dosyanın/repo içeriğinin kendisi bu kayda dahil değildir</strong>, yukarıdaki maddede anlatıldığı gibi hiçbir zaman sunucumuzda tutulmaz.</p>
+      <p style="margin-top:8px;" data-i18n="privacy_history_p2">Bu özelliği Ayarlar sayfasından istediğin zaman kapatabilirsin; kapattığında yeni analizler kaydedilmez. Geçmiş sayfasından tek tek kayıt da silebilirsin.</p>
     </div>
 
     <div class="privacy-section">
-      <h2>GitHub token'ı</h2>
-      <p>Private repo analizi için girdiğin GitHub token'ı sadece o anki isteği yapmak için kullanılır, hiçbir yere kaydedilmez.</p>
+      <h2 data-i18n="privacy_github_h2">GitHub token'ı</h2>
+      <p data-i18n="privacy_github_p">Private repo analizi için girdiğin GitHub token'ı sadece o anki isteği yapmak için kullanılır, hiçbir yere kaydedilmez.</p>
     </div>
 
     <div class="privacy-section">
-      <h2>Çerezler</h2>
-      <p>Sadece oturumunu açık tutmak için teknik amaçlı bir oturum çerezi kullanılır. Reklam/takip amaçlı çerez yok.</p>
+      <h2 data-i18n="privacy_cookies_h2">Çerezler</h2>
+      <p data-i18n="privacy_cookies_p">Sadece oturumunu açık tutmak için teknik amaçlı bir oturum çerezi kullanılır. Reklam/takip amaçlı çerez yok.</p>
     </div>
 
     <div class="privacy-section">
-      <h2>Hesabını silmek istersen</h2>
-      <p>API key'lerini Ayarlar sayfasından, analiz geçmişi kayıtlarını Geçmiş sayfasından kendin kaldırabilirsin. Hesabının tamamen silinmesini istersen aşağıdaki adresten bize yazman yeterli.</p>
+      <h2 data-i18n="privacy_delete_h2">Hesabını silmek istersen</h2>
+      <p data-i18n="privacy_delete_p">API key'lerini Ayarlar sayfasından, analiz geçmişi kayıtlarını Geçmiş sayfasından kendin kaldırabilirsin. Hesabının tamamen silinmesini istersen aşağıdaki adresten bize yazman yeterli.</p>
     </div>
 
     <div class="privacy-section">
-      <h2>Soruların için</h2>
+      <h2 data-i18n="privacy_contact_h2">Soruların için</h2>
       <p><a href="mailto:veliercann10@gmail.com">veliercann10@gmail.com</a></p>
     </div>
 
-    <div class="privacy-note">
+    <div class="privacy-note" data-i18n="privacy_note">
       Bu sayfa, verilerinle ne yaptığımızı açık ve sade bir dille anlatan bir bilgilendirme notudur — resmi bir KVKK Aydınlatma Metni değildir.
     </div>
   </div>

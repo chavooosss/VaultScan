@@ -4,6 +4,7 @@ import pytest
 
 from providers import gemini_provider
 from providers.errors import ProviderNotConfigured
+import prompts
 
 
 def _mock_client(text):
@@ -23,7 +24,7 @@ def test_analyze_code_returns_response_text():
     assert kwargs["model"] == gemini_provider.GEMINI_MODEL
     assert "Dil: Python" in kwargs["contents"]
     assert "print(1)" in kwargs["contents"]
-    assert kwargs["config"].system_instruction == gemini_provider.SYSTEM_PROMPT
+    assert kwargs["config"].system_instruction == prompts.SYSTEM_PROMPT_TR
 
 
 def test_analyze_multi_combines_files_in_prompt():
@@ -49,7 +50,17 @@ def test_synthesize_uses_synthesis_prompt_as_system():
     assert result == "<div>synthesized</div>"
     kwargs = client.models.generate_content.call_args.kwargs
     assert "Claude analizi" in kwargs["contents"]
-    assert kwargs["config"].system_instruction == gemini_provider.SYNTHESIS_PROMPT
+    assert kwargs["config"].system_instruction == prompts.SYNTHESIS_PROMPT_TR
+
+
+def test_analyze_code_uses_english_prompt_when_lang_is_en():
+    client = _mock_client("<div>clean</div>")
+    with patch.object(gemini_provider, "_client", return_value=client):
+        gemini_provider.analyze_code("print(1)", "Python", api_key="sk-test", lang="en")
+
+    kwargs = client.models.generate_content.call_args.kwargs
+    assert kwargs["config"].system_instruction == prompts.SYSTEM_PROMPT_EN
+    assert "Language: Python" in kwargs["contents"]
 
 
 def test_missing_api_key_raises_provider_not_configured():

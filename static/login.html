@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VaultScan — Giriş</title>
-  <meta name="description" content="Kodunu, dosyanı veya GitHub reponu Claude, ChatGPT ve Gemini'ye birlikte göster — güvenlik açıklarını tek bir ortak raporda gör.">
+  <title data-i18n="title_login">VaultScan — Giriş</title>
+  <meta name="description" content="Show your code, file, or GitHub repo to Claude, ChatGPT, and Gemini at once — see security vulnerabilities in a single combined report.">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="VaultScan — AI Destekli Güvenlik Analiz Aracı">
-  <meta property="og:description" content="Kodunu, dosyanı veya GitHub reponu Claude, ChatGPT ve Gemini'ye birlikte göster — güvenlik açıklarını tek bir ortak raporda gör.">
+  <meta property="og:title" content="VaultScan — AI-Powered Security Analysis Tool">
+  <meta property="og:description" content="Show your code, file, or GitHub repo to Claude, ChatGPT, and Gemini at once — see security vulnerabilities in a single combined report.">
   <meta property="og:url" content="https://vaultscan-pxyt.onrender.com">
   <meta property="og:image" content="https://vaultscan-pxyt.onrender.com/static/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="VaultScan — AI Destekli Güvenlik Analiz Aracı">
-  <meta name="twitter:description" content="Kodunu, dosyanı veya GitHub reponu Claude, ChatGPT ve Gemini'ye birlikte göster — güvenlik açıklarını tek bir ortak raporda gör.">
+  <meta name="twitter:title" content="VaultScan — AI-Powered Security Analysis Tool">
+  <meta name="twitter:description" content="Show your code, file, or GitHub repo to Claude, ChatGPT, and Gemini at once — see security vulnerabilities in a single combined report.">
   <meta name="twitter:image" content="https://vaultscan-pxyt.onrender.com/static/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,13 +20,15 @@
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/theme.js"></script>
+  <script src="/static/i18n.js"></script>
 </head>
 <body class="login-body">
+  <button id="langToggle" class="logout-link" onclick="toggleLang()" style="position:absolute;top:16px;right:16px">EN</button>
   <div class="login-card">
-    <span class="eyebrow"><span class="dot"></span>Güvenlik Analiz Aracı</span>
+    <span class="eyebrow"><span class="dot"></span><span data-i18n="eyebrow_tool">Güvenlik Analiz Aracı</span></span>
     <h1>VaultScan</h1>
-    <p>Devam etmek için Google hesabınla giriş yap.</p>
-    <p id="loginError" class="error-text" style="display:none">Giriş başarısız oldu, lütfen tekrar deneyin.</p>
+    <p data-i18n="login_subtitle">Devam etmek için Google hesabınla giriş yap.</p>
+    <p id="loginError" class="error-text" style="display:none" data-i18n="login_error">Giriş başarısız oldu, lütfen tekrar deneyin.</p>
     <a class="google-btn" href="/auth/google/login">
       <svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
         <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/>
@@ -34,9 +36,9 @@
         <path fill="#FBBC05" d="M3.93 10.67A5.4 5.4 0 0 1 3.64 9c0-.58.1-1.15.29-1.67V4.99H.9A9 9 0 0 0 0 9c0 1.45.35 2.83.9 4.01l3.03-2.34z"/>
         <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.57-2.57A8.9 8.9 0 0 0 9 0 9 9 0 0 0 .9 4.99l3.03 2.34C4.64 5.18 6.64 3.58 9 3.58z"/>
       </svg>
-      Google ile Giriş Yap
+      <span data-i18n="login_with_google">Google ile Giriş Yap</span>
     </a>
-    <p style="margin-top:18px;"><a href="/gizlilik" class="back-link">Verilerinle ne yapıyoruz?</a></p>
+    <p style="margin-top:18px;"><a href="/gizlilik" class="back-link" data-i18n="login_privacy_link">Verilerinle ne yapıyoruz?</a></p>
   </div>
   <a href="https://shipin.city/shipped" target="_blank" rel="noopener" class="shipin-badge">
     <img src="/static/shipin-logo.png" alt="Shipin">

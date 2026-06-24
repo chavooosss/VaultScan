@@ -23,7 +23,7 @@ function setStatus(msg, isError) {
 
 async function loadKeyStatuses() {
   try {
-    const resp = await fetch('/api/keys');
+    const resp = await fetch('/api/keys', { headers: { 'X-Lang': getLang() } });
     const data = await resp.json();
     if (data.error) return;
     document.querySelectorAll('.key-list .key-card').forEach(card => {
@@ -31,7 +31,7 @@ async function loadKeyStatuses() {
       const statusEl = card.querySelector('[data-status]');
       const removeBtn = card.querySelector('.key-remove-btn');
       const isSet = !!data[provider];
-      statusEl.textContent = isSet ? 'Eklendi' : 'Eklenmedi';
+      statusEl.textContent = isSet ? t('key_added') : t('key_not_added');
       statusEl.className = 'key-status' + (isSet ? ' key-status-set' : '');
       removeBtn.style.display = isSet ? 'inline-block' : 'none';
     });
@@ -44,11 +44,11 @@ async function saveKey(card) {
   const provider = card.dataset.provider;
   const input = card.querySelector('.key-input');
   const value = input.value.trim();
-  if (!value) { setStatus('API key boş olamaz.', true); return; }
+  if (!value) { setStatus(t('api_key_empty'), true); return; }
 
   const prefix = KEY_PREFIXES[provider];
   if (prefix && !value.startsWith(prefix)) {
-    setStatus("Geçersiz API key formatı. Claude için sk-ant-, OpenAI için sk- ile başlamalı.", true);
+    setStatus(t('invalid_key_format'), true);
     return;
   }
 
@@ -56,16 +56,16 @@ async function saveKey(card) {
     await userInfoReady;
     const resp = await fetch('/api/keys', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken, 'X-Lang': getLang() },
       body: JSON.stringify({ provider, api_key: value })
     });
     const data = await resp.json();
     if (data.error) { setStatus(data.error, true); return; }
     input.value = '';
-    setStatus('Kaydedildi.', false);
+    setStatus(t('saved'), false);
     loadKeyStatuses();
   } catch (e) {
-    setStatus('Hata: ' + e.message, true);
+    setStatus(t('err_prefix') + e.message, true);
   }
 }
 
@@ -73,13 +73,13 @@ async function removeKey(card) {
   const provider = card.dataset.provider;
   try {
     await userInfoReady;
-    const resp = await fetch(`/api/keys/${provider}`, { method: 'DELETE', headers: { 'X-CSRF-Token': csrfToken } });
+    const resp = await fetch(`/api/keys/${provider}`, { method: 'DELETE', headers: { 'X-CSRF-Token': csrfToken, 'X-Lang': getLang() } });
     const data = await resp.json();
     if (data.error) { setStatus(data.error, true); return; }
-    setStatus('Kaldırıldı.', false);
+    setStatus(t('removed'), false);
     loadKeyStatuses();
   } catch (e) {
-    setStatus('Hata: ' + e.message, true);
+    setStatus(t('err_prefix') + e.message, true);
   }
 }
 
@@ -90,7 +90,7 @@ document.querySelectorAll('.key-list .key-card').forEach(card => {
 
 async function loadHistoryToggle() {
   try {
-    const resp = await fetch('/api/history');
+    const resp = await fetch('/api/history', { headers: { 'X-Lang': getLang() } });
     const data = await resp.json();
     if (data.error) return;
     document.getElementById('historyToggleInput').checked = !!data.history_enabled;
@@ -103,14 +103,14 @@ document.getElementById('historyToggleInput').addEventListener('change', async (
     await userInfoReady;
     const resp = await fetch('/api/history/toggle', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken, 'X-Lang': getLang() },
       body: JSON.stringify({ enabled })
     });
     const data = await resp.json();
     if (data.error) { setStatus(data.error, true); e.target.checked = !enabled; return; }
-    setStatus(enabled ? 'Analiz geçmişi açıldı.' : 'Analiz geçmişi kapatıldı.', false);
+    setStatus(enabled ? t('history_on') : t('history_off'), false);
   } catch (err) {
-    setStatus('Hata: ' + err.message, true);
+    setStatus(t('err_prefix') + err.message, true);
     e.target.checked = !enabled;
   }
 });
@@ -118,3 +118,5 @@ document.getElementById('historyToggleInput').addEventListener('change', async (
 const userInfoReady = loadUserInfo();
 loadKeyStatuses();
 loadHistoryToggle();
+
+document.addEventListener('langchange', loadKeyStatuses);

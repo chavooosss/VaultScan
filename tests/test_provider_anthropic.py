@@ -4,6 +4,7 @@ import pytest
 
 from providers import anthropic_provider
 from providers.errors import ProviderNotConfigured
+import prompts
 
 
 def _mock_client(text):
@@ -46,8 +47,18 @@ def test_synthesize_uses_synthesis_prompt_as_system():
 
     assert result == "<div>synthesized</div>"
     kwargs = client.messages.create.call_args.kwargs
-    assert kwargs["system"] == anthropic_provider.SYNTHESIS_PROMPT
+    assert kwargs["system"] == prompts.SYNTHESIS_PROMPT_TR
     assert "Claude analizi" in kwargs["messages"][0]["content"]
+
+
+def test_analyze_code_uses_english_prompt_when_lang_is_en():
+    client = _mock_client("<div>clean</div>")
+    with patch.object(anthropic_provider, "_client", return_value=client):
+        anthropic_provider.analyze_code("print(1)", "Python", api_key="sk-test", lang="en")
+
+    kwargs = client.messages.create.call_args.kwargs
+    assert kwargs["system"] == prompts.SYSTEM_PROMPT_EN
+    assert "Language: Python" in kwargs["messages"][0]["content"]
 
 
 def test_missing_api_key_raises_provider_not_configured():

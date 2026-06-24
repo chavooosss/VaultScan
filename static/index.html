@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VaultScan</title>
-  <meta name="description" content="Kodunu, dosyanı veya GitHub reponu Claude, ChatGPT ve Gemini'ye birlikte göster — güvenlik açıklarını tek bir ortak raporda gör.">
+  <title data-i18n="title_index">VaultScan</title>
+  <meta name="description" content="Show your code, file, or GitHub repo to Claude, ChatGPT, and Gemini at once — see security vulnerabilities in a single combined report.">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="VaultScan — AI Destekli Güvenlik Analiz Aracı">
-  <meta property="og:description" content="Kodunu, dosyanı veya GitHub reponu Claude, ChatGPT ve Gemini'ye birlikte göster — güvenlik açıklarını tek bir ortak raporda gör.">
+  <meta property="og:title" content="VaultScan — AI-Powered Security Analysis Tool">
+  <meta property="og:description" content="Show your code, file, or GitHub repo to Claude, ChatGPT, and Gemini at once — see security vulnerabilities in a single combined report.">
   <meta property="og:url" content="https://vaultscan-pxyt.onrender.com">
   <meta property="og:image" content="https://vaultscan-pxyt.onrender.com/static/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="VaultScan — AI Destekli Güvenlik Analiz Aracı">
-  <meta name="twitter:description" content="Kodunu, dosyanı veya GitHub reponu Claude, ChatGPT ve Gemini'ye birlikte göster — güvenlik açıklarını tek bir ortak raporda gör.">
+  <meta name="twitter:title" content="VaultScan — AI-Powered Security Analysis Tool">
+  <meta name="twitter:description" content="Show your code, file, or GitHub repo to Claude, ChatGPT, and Gemini at once — see security vulnerabilities in a single combined report.">
   <meta name="twitter:image" content="https://vaultscan-pxyt.onrender.com/static/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,6 +20,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/theme.js"></script>
+  <script src="/static/i18n.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.11/dist/purify.min.js" integrity="sha384-o44XUELLEnv/iSlA1NWxBweqbD4TSR0qgq2VzVsxtkHS989JJjGKSE9vkfo5MN4K" crossorigin="anonymous"></script>
   <script src="/static/render-result.js"></script>
 </head>
@@ -28,25 +29,26 @@
     <div class="user-bar" id="userBar">
       <img id="userAvatar" class="user-avatar" src="" alt="" style="display:none">
       <span id="userName" class="user-name"></span>
+      <button id="langToggle" class="logout-link" onclick="toggleLang()">EN</button>
       <button id="themeToggle" class="logout-link" onclick="toggleTheme()">☀︎</button>
-      <a href="/history" class="logout-link">Geçmiş</a>
-      <a href="/settings" class="logout-link">Ayarlar</a>
-      <a href="/gizlilik" class="logout-link">Gizlilik</a>
-      <a href="/auth/logout" class="logout-link">Çıkış</a>
+      <a href="/history" class="logout-link" data-i18n="nav_history">Geçmiş</a>
+      <a href="/settings" class="logout-link" data-i18n="nav_settings">Ayarlar</a>
+      <a href="/gizlilik" class="logout-link" data-i18n="nav_privacy">Gizlilik</a>
+      <a href="/auth/logout" class="logout-link" data-i18n="nav_logout">Çıkış</a>
     </div>
     <div class="header">
-      <span class="eyebrow"><span class="dot"></span>Güvenlik Analiz Aracı</span>
+      <span class="eyebrow"><span class="dot"></span><span data-i18n="eyebrow_tool">Güvenlik Analiz Aracı</span></span>
       <h1>VaultScan</h1>
-      <p>Kodunu yapıştır, dosya yükle veya GitHub repo analiz et</p>
+      <p data-i18n="tagline_index">Kodunu yapıştır, dosya yükle veya GitHub repo analiz et</p>
     </div>
 
     <div class="toolbar">
       <div class="tabs">
-        <button class="tab active" onclick="switchTab('paste', this)">Kod Yapıştır</button>
-        <button class="tab" onclick="switchTab('file', this)">Dosya Yükle</button>
+        <button class="tab active" onclick="switchTab('paste', this)" data-i18n="tab_paste">Kod Yapıştır</button>
+        <button class="tab" onclick="switchTab('file', this)" data-i18n="tab_file">Dosya Yükle</button>
         <button class="tab" onclick="switchTab('github', this)">GitHub</button>
       </div>
-      <div class="provider-picker" id="providerPicker" title="Analiz için bir veya daha fazla AI seç">
+      <div class="provider-picker" id="providerPicker" data-i18n-title="provider_picker_title" title="Analiz için bir veya daha fazla AI seç">
         <button type="button" class="provider-chip active" data-provider="claude" onclick="toggleProvider(this)">Claude</button>
         <button type="button" class="provider-chip" data-provider="chatgpt" onclick="toggleProvider(this)">ChatGPT</button>
         <button type="button" class="provider-chip" data-provider="gemini" onclick="toggleProvider(this)">Gemini</button>
@@ -57,9 +59,9 @@
       <!-- Kod Yapıştır -->
       <div class="panel" id="pastePanel">
         <div class="panel-header">
-          <span>Kod</span>
+          <span data-i18n="label_code">Kod</span>
           <select id="language">
-            <option value="otomatik tespit">Otomatik Tespit</option>
+            <option value="otomatik tespit" data-i18n="lang_auto">Otomatik Tespit</option>
             <option value="Python">Python</option>
             <option value="JavaScript">JavaScript</option>
             <option value="TypeScript">TypeScript</option>
@@ -70,25 +72,25 @@
             <option value="SQL">SQL</option>
           </select>
         </div>
-        <textarea id="code" placeholder="Kodunu buraya yapıştır..."></textarea>
-        <button id="analyzeBtn" onclick="analyze()">Analiz Et</button>
+        <textarea id="code" data-i18n-placeholder="code_placeholder" placeholder="Kodunu buraya yapıştır..."></textarea>
+        <button id="analyzeBtn" onclick="analyze()" data-i18n="btn_analyze">Analiz Et</button>
       </div>
 
       <!-- Dosya Yükle -->
       <div class="panel" id="filePanel" style="display:none">
         <div class="panel-header">
-          <span>Dosya Yükle</span>
+          <span data-i18n="tab_file">Dosya Yükle</span>
           <span class="hint">.py .js .ts .php .java .go .rs .zip ...</span>
         </div>
         <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
           <div class="upload-icon">📁</div>
-          <p>Dosyayı buraya sürükle veya tıkla</p>
-          <p class="hint" style="margin-top:4px">ZIP dosyası ile birden fazla dosya analiz edebilirsin</p>
+          <p data-i18n="upload_drag_or_click">Dosyayı buraya sürükle veya tıkla</p>
+          <p class="hint" style="margin-top:4px" data-i18n="upload_zip_hint">ZIP dosyası ile birden fazla dosya analiz edebilirsin</p>
         </div>
         <input type="file" id="fileInput" style="display:none" onchange="selectFile(this)" accept=".py,.js,.ts,.php,.java,.go,.rs,.c,.cpp,.h,.cs,.rb,.swift,.kt,.sql,.html,.css,.sh,.yaml,.yml,.json,.zip">
         <div id="uploadActions" style="display:none">
-          <button id="uploadConfirmBtn" onclick="confirmUpload()">Analiz Et</button>
-          <button id="uploadCancelBtn" class="btn-secondary" onclick="cancelUpload()">İptal</button>
+          <button id="uploadConfirmBtn" onclick="confirmUpload()" data-i18n="btn_analyze">Analiz Et</button>
+          <button id="uploadCancelBtn" class="btn-secondary" onclick="cancelUpload()" data-i18n="btn_cancel">İptal</button>
         </div>
       </div>
 
@@ -98,27 +100,27 @@
           <span>GitHub Repo</span>
         </div>
         <div class="github-form">
-          <input class="inp" id="githubUrl" placeholder="https://github.com/kullanici/repo" type="text">
-          <input class="inp" id="githubToken" placeholder="GitHub Token (opsiyonel, private repo için)" type="password">
-          <p class="hint">Public repolar için token gerekmez. Max 20 dosya analiz edilir. · Ctrl+Enter ile analiz et</p>
+          <input class="inp" id="githubUrl" data-i18n-placeholder="github_url_placeholder" placeholder="https://github.com/kullanici/repo" type="text">
+          <input class="inp" id="githubToken" data-i18n-placeholder="github_token_placeholder" placeholder="GitHub Token (opsiyonel, private repo için)" type="password">
+          <p class="hint" data-i18n="github_hint">Public repolar için token gerekmez. Max 20 dosya analiz edilir. · Ctrl+Enter ile analiz et</p>
         </div>
-        <button id="githubBtn" onclick="analyzeGithub()">Repo Analiz Et</button>
+        <button id="githubBtn" onclick="analyzeGithub()" data-i18n="btn_analyze_repo">Repo Analiz Et</button>
       </div>
 
       <!-- Sonuç -->
       <div class="panel" id="resultPanel">
         <div class="panel-header">
-          <span id="resultTitle">Sonuç</span>
+          <span id="resultTitle" data-i18n="label_result">Sonuç</span>
           <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn-copy" id="copyBtn" onclick="copyResult()" style="display:none">Kopyala</button>
+            <button class="btn-copy" id="copyBtn" onclick="copyResult()" style="display:none" data-i18n="btn_copy">Kopyala</button>
             <button class="btn-copy" id="mdBtn" onclick="downloadMarkdown()" style="display:none">Markdown</button>
             <button class="btn-copy" id="pdfBtn" onclick="window.print()" style="display:none">PDF</button>
-            <button class="btn-copy btn-stop" id="stopBtn" onclick="stopAnalysis()" style="display:none">⏹ Durdur</button>
+            <button class="btn-copy btn-stop" id="stopBtn" onclick="stopAnalysis()" style="display:none" data-i18n="btn_stop">⏹ Durdur</button>
             <span id="status"></span>
           </div>
         </div>
-        <div class="print-title">VaultScan — Güvenlik Analiz Raporu</div>
-        <div id="result" class="result">Analiz sonucu burada görünecek...</div>
+        <div class="print-title" data-i18n="print_title">VaultScan — Güvenlik Analiz Raporu</div>
+        <div id="result" class="result" data-i18n="result_placeholder">Analiz sonucu burada görünecek...</div>
       </div>
     </div>
   </div>
