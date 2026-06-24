@@ -58,6 +58,30 @@ function hideExportButtons() {
   document.getElementById('pdfBtn').style.display = 'none';
 }
 
+async function consumeNdjsonStream(response, onMessage) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try { onMessage(JSON.parse(line)); } catch (e) { /* json parse hatası */ }
+    }
+  }
+
+  if (buffer.trim()) {
+    try { onMessage(JSON.parse(buffer)); } catch (e) { /* yoksay */ }
+  }
+}
+
 let currentAbortController = null;
 
 function setLoading(msg) {
@@ -136,9 +160,12 @@ async function analyze() {
       body: JSON.stringify({ code, language, providers: getSelectedProviders() }),
       signal: currentAbortController.signal
     });
-    const data = await response.json();
-    if (data.error) { setError(data.error); return; }
-    setResult(data.result);
+    await consumeNdjsonStream(response, (msg) => {
+      if (msg.type === 'ping') return;
+      if (msg.error) { setError(msg.error); return; }
+      if (msg.type === 'error') { setError(msg.message); return; }
+      if (msg.type === 'result') { setResult(msg.result); return; }
+    });
   } catch (err) {
     if (err.name === 'AbortError') { setStopped(); return; }
     setError('Hata: ' + err.message);
@@ -195,9 +222,14 @@ async function confirmUpload() {
       body: formData,
       signal: currentAbortController.signal
     });
-    const data = await response.json();
-    if (data.error) { setError(data.error); return; }
-    setResult(data.type === 'zip' ? buildZipHtml(data.results) : data.result);
+    await consumeNdjsonStream(response, (msg) => {
+      if (msg.type === 'ping') return;
+      if (msg.error) { setError(msg.error); return; }
+      if (msg.type === 'result') {
+        setResult(msg.result_type === 'zip' ? buildZipHtml(msg.results) : msg.result);
+        return;
+      }
+    });
   } catch (err) {
     if (err.name === 'AbortError') { setStopped(); return; }
     setError('Hata: ' + err.message);

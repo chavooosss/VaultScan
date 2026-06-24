@@ -124,7 +124,7 @@ def test_analyze_endpoint_returns_mocked_result():
     with patch("main.analyze_code_collab", AsyncMock(return_value="<div>mocked</div>")) as mock_analyze:
         resp = client.post("/analyze", json={"code": "print(1)", "language": "Python"})
     assert resp.status_code == 200
-    assert resp.json() == {"result": "<div>mocked</div>"}
+    assert resp.json() == {"type": "result", "result": "<div>mocked</div>"}
     mock_analyze.assert_called_once_with("print(1)", "Python", ["claude"], {"claude": CLAUDE_KEY})
 
 
@@ -200,7 +200,7 @@ def test_analyze_endpoint_explicit_providers_passed_through():
     _set_key("chatgpt", CHATGPT_KEY)
     with patch("main.analyze_code_collab", AsyncMock(return_value="<div>gpt</div>")) as mock_analyze:
         resp = client.post("/analyze", json={"code": "x = 1", "providers": ["chatgpt"]})
-    assert resp.json() == {"result": "<div>gpt</div>"}
+    assert resp.json() == {"type": "result", "result": "<div>gpt</div>"}
     mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", ["chatgpt"], {"chatgpt": CHATGPT_KEY})
 
 
@@ -209,7 +209,7 @@ def test_analyze_endpoint_multi_provider_list_passed_through():
     _set_key("gemini", GEMINI_KEY)
     with patch("main.analyze_code_collab", AsyncMock(return_value="<div>merged</div>")) as mock_analyze:
         resp = client.post("/analyze", json={"code": "x = 1", "providers": ["claude", "chatgpt", "gemini"]})
-    assert resp.json() == {"result": "<div>merged</div>"}
+    assert resp.json() == {"type": "result", "result": "<div>merged</div>"}
     mock_analyze.assert_called_once_with(
         "x = 1", "otomatik tespit", ["claude", "chatgpt", "gemini"],
         {"claude": CLAUDE_KEY, "chatgpt": CHATGPT_KEY, "gemini": GEMINI_KEY},
@@ -220,7 +220,9 @@ def test_analyze_endpoint_collab_exception_returns_friendly_error():
     with patch("main.analyze_code_collab", AsyncMock(side_effect=RuntimeError("Hiçbir AI analizi tamamlayamadı."))):
         resp = client.post("/analyze", json={"code": "x = 1"})
     assert resp.status_code == 200
-    assert "Analiz hatası" in resp.json()["error"]
+    data = resp.json()
+    assert data["type"] == "error"
+    assert "Analiz hatası" in data["message"]
 
 
 def test_upload_single_file():
@@ -231,7 +233,8 @@ def test_upload_single_file():
         )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["type"] == "file"
+    assert data["type"] == "result"
+    assert data["result_type"] == "file"
     assert data["result"] == "<div>single</div>"
     mock_analyze.assert_called_once_with("print('hi')", "PY", ["claude"], {"claude": CLAUDE_KEY})
 
@@ -316,7 +319,8 @@ def test_upload_zip_multiple_small_files_analyzed_together():
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["type"] == "zip"
+    assert data["type"] == "result"
+    assert data["result_type"] == "zip"
     assert len(data["results"]) == 2
     assert all(r["result"] == "<div>zip-result</div>" for r in data["results"])
     assert mock_multi.call_args.args[1] == ["claude"]
@@ -338,7 +342,8 @@ def test_upload_zip_processes_every_group_not_just_the_first():
         resp = client.post("/upload", files={"file": ("project.zip", buf.getvalue(), "application/zip")})
 
     data = resp.json()
-    assert data["type"] == "zip"
+    assert data["type"] == "result"
+    assert data["result_type"] == "zip"
     # a.py + b.py ilk grupta (birlikte ~27000 karakter), c.py kendi grubunda
     # önceden c.py'nin grubu hiç işlenmiyordu (break bug'ı)
     assert len(data["results"]) == 3
@@ -365,7 +370,8 @@ def test_upload_zip_skips_oversized_entry():
         resp = client.post("/upload", files={"file": ("project.zip", buf.getvalue(), "application/zip")})
 
     data = resp.json()
-    assert data["type"] == "zip"
+    assert data["type"] == "result"
+    assert data["result_type"] == "zip"
     assert len(data["results"]) == 1
     assert data["results"][0]["file"] == "small.py"
     mock_single.assert_called_once()

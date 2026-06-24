@@ -1,3 +1,4 @@
+import asyncio
 import zipfile
 import html
 import io
@@ -120,6 +121,25 @@ def build_project_context(repo_label: str, paths: list[str]) -> str:
         "amacını dosya adlarından çıkarmaya çalış."
     )
 
+HEARTBEAT_INTERVAL_SECONDS = 8
+
+async def run_with_heartbeat(coro):
+    """coro'yu bekler, beklerken periyodik olarak ("ping", None) üretir.
+
+    AI çağrıları uzun sürebiliyor (90s'e kadar); aradan hiç byte göndermeden
+    tek seferlik bir yanıt beklemek, Render gibi reverse proxy'lerin boşta
+    kalan bağlantıyı zaman aşımına uğratmasına yol açıyordu — istemci hata
+    görse de sunucu işi arka planda bitirip token harcamaya devam ediyordu.
+    Periyodik ping byte'ları bağlantıyı canlı tutar.
+    """
+    task = asyncio.ensure_future(coro)
+    while True:
+        done, _ = await asyncio.wait({task}, timeout=HEARTBEAT_INTERVAL_SECONDS)
+        if task in done:
+            yield ("done", task.result())
+            return
+        yield ("ping", None)
+
 def combine_results_html(results: list[dict]) -> str:
     return "".join(
         f'<div class="file-section"><div class="file-name">📄 {html.escape(r["file"])}</div>{r["result"]}</div>'
@@ -207,13 +227,25 @@ async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = 
     if error:
         return {"error": error}
     api_keys = build_api_keys(request.providers, user)
-    try:
-        result = await analyze_code_collab(request.code, request.language, request.providers, api_keys)
-    except Exception as e:
-        return {"error": f"Analiz hatası: {e}"}
-    if user.history_enabled:
-        save_analysis(db, user, request.providers, "paste", "Yapıştırılan kod", result)
-    return {"result": result}
+
+    async def stream():
+        try:
+            result = None
+            async for kind, payload in run_with_heartbeat(
+                analyze_code_collab(request.code, request.language, request.providers, api_keys)
+            ):
+                if kind == "ping":
+                    yield json.dumps({"type": "ping"}) + "\n"
+                else:
+                    result = payload
+        except Exception as e:
+            yield json.dumps({"type": "error", "message": f"Analiz hatası: {e}"}) + "\n"
+            return
+        if user.history_enabled:
+            save_analysis(db, user, request.providers, "paste", "Yapıştırılan kod", result)
+        yield json.dumps({"type": "result", "result": result}) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 @app.post("/upload")
 async def upload_file(http_request: Request, file: UploadFile = File(...), providers: str = Form(DEFAULT_PROVIDER), db: Session = Depends(get_db)):
@@ -238,7 +270,9 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
     if len(content) > MAX_UPLOAD_SIZE:
         return {"error": f"Dosya çok büyük (maks {MAX_UPLOAD_SIZE // (1024*1024)} MB)."}
 
-    if filename.endswith(".zip"):
+    is_zip = filename.endswith(".zip")
+
+    if is_zip:
         file_contents = []
         with zipfile.ZipFile(io.BytesIO(content)) as zf:
             for info in zf.infolist():
@@ -260,16 +294,33 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
 
         file_contents.sort(key=lambda f: score_file(f['path']), reverse=True)
         file_contents = file_contents[:20]
+        if not file_contents:
+            return {"error": "Zip içinde desteklenen dosya bulunamadı."}
+    else:
+        ext = "." + filename.split(".")[-1].lower() if "." in filename else ""
+        if ext not in SUPPORTED_EXTENSIONS:
+            return {"error": f"Desteklenmeyen dosya formatı: {ext}"}
+        code = content.decode("utf-8", errors="ignore")
+        language = filename.split(".")[-1].upper() if "." in filename else "otomatik tespit"
+        file_contents = [{"path": filename, "code": code, "language": language, "size": len(code)}]
 
-        groups = group_files_by_context(file_contents)
+    groups = group_files_by_context(file_contents)
+
+    async def stream():
         results = []
         for group in groups:
             is_multi = len(group) > 1
             try:
-                if is_multi:
-                    result = await analyze_multi_collab(group, provider_list, api_keys)
-                else:
-                    result = await analyze_code_collab(group[0]['code'], group[0]['language'], provider_list, api_keys)
+                coro = (
+                    analyze_multi_collab(group, provider_list, api_keys) if is_multi
+                    else analyze_code_collab(group[0]['code'], group[0]['language'], provider_list, api_keys)
+                )
+                result = None
+                async for kind, payload in run_with_heartbeat(coro):
+                    if kind == "ping":
+                        yield json.dumps({"type": "ping"}) + "\n"
+                    else:
+                        result = payload
             except Exception as e:
                 result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
 
@@ -280,22 +331,17 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
                 results.append({"file": group[0]['path'], "result": result})
 
         if user.history_enabled:
-            save_analysis(db, user, provider_list, "file", filename, combine_results_html(results))
-        return {"type": "zip", "results": results}
+            save_analysis(
+                db, user, provider_list, "file", filename,
+                combine_results_html(results) if is_zip else results[0]["result"],
+            )
 
-    ext = "." + filename.split(".")[-1].lower() if "." in filename else ""
-    if ext not in SUPPORTED_EXTENSIONS:
-        return {"error": f"Desteklenmeyen dosya formatı: {ext}"}
+        if is_zip:
+            yield json.dumps({"type": "result", "result_type": "zip", "results": results}) + "\n"
+        else:
+            yield json.dumps({"type": "result", "result_type": "file", "result": results[0]["result"]}) + "\n"
 
-    code = content.decode("utf-8", errors="ignore")
-    language = filename.split(".")[-1].upper() if "." in filename else "otomatik tespit"
-    try:
-        result = await analyze_code_collab(code, language, provider_list, api_keys)
-    except Exception as e:
-        return {"error": f"Analiz hatası: {e}"}
-    if user.history_enabled:
-        save_analysis(db, user, provider_list, "file", filename, result)
-    return {"type": "file", "result": result}
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 @app.post("/github")
 async def analyze_github(request: GithubRequest, http_request: Request, db: Session = Depends(get_db)):
@@ -396,10 +442,16 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
 
                     yield json.dumps({"type": "progress", "current": analyzed + 1, "total": len(file_contents), "file": progress_file, "phase": phase}) + "\n"
                     try:
-                        if is_multi:
-                            result = await analyze_multi_collab(group, request.providers, api_keys, project_context)
-                        else:
-                            result = await analyze_code_collab(group[0]["code"], group[0]["language"], request.providers, api_keys, project_context)
+                        coro = (
+                            analyze_multi_collab(group, request.providers, api_keys, project_context) if is_multi
+                            else analyze_code_collab(group[0]["code"], group[0]["language"], request.providers, api_keys, project_context)
+                        )
+                        result = None
+                        async for kind, payload in run_with_heartbeat(coro):
+                            if kind == "ping":
+                                yield json.dumps({"type": "ping"}) + "\n"
+                            else:
+                                result = payload
                     except Exception as e:
                         result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
                     yield json.dumps({"type": "result", "file": label, "result": result}) + "\n"
