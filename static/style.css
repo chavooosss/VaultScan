@@ -115,8 +115,9 @@ body::before {
 
 .logout-link:hover { color: var(--text); border-color: var(--border-strong); background: var(--bg-hover); }
 
-#themeToggle { background: transparent; margin: 0; font-weight: 500; }
-#themeToggle:hover { background: var(--bg-hover); box-shadow: none; }
+#themeToggle, #langToggle { background: transparent; margin: 0; font-weight: 500; }
+#themeToggle:hover, #langToggle:hover { background: var(--bg-hover); box-shadow: none; }
+#langToggle { color: var(--text-secondary); }
 
 .header {
   text-align: center;
