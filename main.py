@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import zipfile
 import html
@@ -26,8 +27,16 @@ from db import (
 from config import SESSION_SECRET
 import json
 
-app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=bool(os.getenv("RENDER")))
+logger = logging.getLogger("vaultscan")
+
+_IS_PRODUCTION = bool(os.getenv("RENDER"))
+
+app = FastAPI(
+    docs_url=None if _IS_PRODUCTION else "/docs",
+    redoc_url=None if _IS_PRODUCTION else "/redoc",
+    openapi_url=None if _IS_PRODUCTION else "/openapi.json",
+)
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=_IS_PRODUCTION)
 init_db()
 
 @app.middleware("http")
@@ -36,6 +45,8 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "same-origin"
+    if not request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store"
     return response
 
 SUPPORTED_EXTENSIONS = {
@@ -499,6 +510,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     try:
         token = await oauth.google.authorize_access_token(request)
     except OAuthError:
+        logger.exception("Google OAuth callback başarısız oldu")
         return RedirectResponse(url="/?login_error=1")
     userinfo = token.get("userinfo") or await oauth.google.userinfo(token=token)
     user = get_or_create_user(

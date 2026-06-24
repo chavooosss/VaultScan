@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from cryptography.fernet import Fernet
 
 load_dotenv()
 
@@ -19,3 +20,7 @@ if not SESSION_SECRET:
     raise RuntimeError("SESSION_SECRET ortam değişkeni ayarlanmamış — oturumlar güvensiz olur.")
 if not ENCRYPTION_KEY:
     raise RuntimeError("ENCRYPTION_KEY ortam değişkeni ayarlanmamış — API key şifrelemesi çalışamaz.")
+try:
+    Fernet(ENCRYPTION_KEY.encode())
+except (ValueError, TypeError) as e:
+    raise RuntimeError(f"ENCRYPTION_KEY geçersiz bir Fernet key değil: {e}") from e
