@@ -99,6 +99,13 @@ def test_privacy_page_is_public_without_login():
     assert "Verilerinle ne yapıyoruz" in resp.text
 
 
+def test_robots_txt_is_public_and_disallows_api():
+    anon_client = TestClient(app)
+    resp = anon_client.get("/robots.txt")
+    assert resp.status_code == 200
+    assert "Disallow: /api/" in resp.text
+
+
 def test_root_serves_app_when_authenticated():
     resp = client.get("/")
     assert resp.status_code == 200

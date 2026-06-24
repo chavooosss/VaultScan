@@ -1,0 +1,27 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        env:
+          # Bunlar sadece CI'da kullanılan, gerçek bir şeyi korumayan test
+          # değerleridir — production secret'larıyla hiçbir ilgisi yok.
+          SESSION_SECRET: ci-test-session-secret
+          ENCRYPTION_KEY: fVv38NFOvYXKV2PhLw_mv8Lh3Hi9YXvYM6PRHk2nFZ0=
+        run: pytest -q
