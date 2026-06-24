@@ -9,6 +9,7 @@ from providers.errors import ProviderNotConfigured
 def _mock_client(text):
     client = MagicMock()
     client.models.generate_content.return_value = MagicMock(text=text)
+    client.__enter__.return_value = client
     return client
 
 

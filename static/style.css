@@ -302,6 +302,14 @@ button:hover { background: var(--accent-hover); box-shadow: 0 6px 20px -4px var(
 button:active { transform: scale(0.985); }
 button:disabled { background: var(--bg-elevated); color: var(--text-tertiary); cursor: not-allowed; }
 
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover { background: var(--bg-hover); box-shadow: none; color: var(--text); }
+
 .inp {
   background: var(--bg-elevated);
   border: 1px solid var(--border);

@@ -71,9 +71,12 @@
           <div class="upload-icon">📁</div>
           <p>Dosyayı buraya sürükle veya tıkla</p>
           <p class="hint" style="margin-top:4px">ZIP dosyası ile birden fazla dosya analiz edebilirsin</p>
-          <input type="file" id="fileInput" style="display:none" onchange="uploadFile(this)" accept=".py,.js,.ts,.php,.java,.go,.rs,.c,.cpp,.h,.cs,.rb,.swift,.kt,.sql,.html,.css,.sh,.yaml,.yml,.json,.zip">
         </div>
-        <button id="uploadBtn" style="display:none" onclick="document.getElementById('fileInput').click()">Farklı Dosya Seç</button>
+        <input type="file" id="fileInput" style="display:none" onchange="selectFile(this)" accept=".py,.js,.ts,.php,.java,.go,.rs,.c,.cpp,.h,.cs,.rb,.swift,.kt,.sql,.html,.css,.sh,.yaml,.yml,.json,.zip">
+        <div id="uploadActions" style="display:none">
+          <button id="uploadConfirmBtn" onclick="confirmUpload()">Analiz Et</button>
+          <button id="uploadCancelBtn" class="btn-secondary" onclick="cancelUpload()">İptal</button>
+        </div>
       </div>
 
       <!-- GitHub -->

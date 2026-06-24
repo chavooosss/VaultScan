@@ -110,7 +110,10 @@ document.addEventListener('keydown', (e) => {
   if (!(e.ctrlKey || e.metaKey) || e.key !== 'Enter') return;
   e.preventDefault();
   if (currentTab === 'paste') analyze();
-  else if (currentTab === 'file') document.getElementById('fileInput').click();
+  else if (currentTab === 'file') {
+    if (selectedFile) confirmUpload();
+    else document.getElementById('fileInput').click();
+  }
   else if (currentTab === 'github') analyzeGithub();
 });
 
@@ -193,18 +196,36 @@ async function analyze() {
   }
 }
 
-async function uploadFile(input) {
+let selectedFile = null;
+
+const UPLOAD_AREA_DEFAULT = `<div class="upload-icon">📁</div><p>Dosyayı buraya sürükle veya tıkla</p><p class="hint" style="margin-top:4px">ZIP dosyası ile birden fazla dosya analiz edebilirsin</p>`;
+
+function selectFile(input) {
   const file = input.files[0];
   if (!file) return;
-  await handleFile(file);
+  input.value = '';
+  handleFile(file);
 }
 
-async function handleFile(file) {
+function handleFile(file) {
   if (!file) return;
 
+  selectedFile = file;
   const uploadArea = document.getElementById('uploadArea');
   uploadArea.innerHTML = `<div class="upload-icon">📄</div><p>${escapeHtml(file.name)}</p><p class="hint" style="margin-top:4px">${(file.size/1024).toFixed(1)} KB</p>`;
-  document.getElementById('uploadBtn').style.display = 'block';
+  document.getElementById('uploadActions').style.display = 'block';
+}
+
+function cancelUpload() {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('uploadArea').innerHTML = UPLOAD_AREA_DEFAULT;
+  document.getElementById('uploadActions').style.display = 'none';
+}
+
+async function confirmUpload() {
+  if (!selectedFile) return;
+  const file = selectedFile;
 
   setLoading('Dosya analiz ediliyor...');
 

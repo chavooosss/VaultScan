@@ -16,27 +16,30 @@ def _config(system_instruction: str):
     )
 
 def analyze_code(code: str, language: str, api_key: str) -> str:
-    response = _client(api_key).models.generate_content(
-        model=GEMINI_MODEL,
-        contents=f"Dil: {language}\n\nKod:\n```\n{code}\n```",
-        config=_config(SYSTEM_PROMPT),
-    )
-    return response.text
+    with _client(api_key) as client:
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=f"Dil: {language}\n\nKod:\n```\n{code}\n```",
+            config=_config(SYSTEM_PROMPT),
+        )
+        return response.text
 
 def analyze_multi(files: list, api_key: str) -> str:
     parts = [f"### {f['path']}\n```\n{f['code']}\n```" for f in files]
     content = "Aşağıdaki dosyalar birbiriyle ilişkili, birlikte analiz et:\n\n" + "\n\n".join(parts)
-    response = _client(api_key).models.generate_content(
-        model=GEMINI_MODEL,
-        contents=content,
-        config=_config(SYSTEM_PROMPT),
-    )
-    return response.text
+    with _client(api_key) as client:
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=content,
+            config=_config(SYSTEM_PROMPT),
+        )
+        return response.text
 
 def synthesize(content: str, api_key: str) -> str:
-    response = _client(api_key).models.generate_content(
-        model=GEMINI_MODEL,
-        contents=content,
-        config=_config(SYNTHESIS_PROMPT),
-    )
-    return response.text
+    with _client(api_key) as client:
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=content,
+            config=_config(SYNTHESIS_PROMPT),
+        )
+        return response.text
