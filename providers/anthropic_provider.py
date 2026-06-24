@@ -1,6 +1,6 @@
 import anthropic
 from config import MODEL, MAX_TOKENS, PROVIDER_TIMEOUT_SECONDS
-from prompts import SYSTEM_PROMPT, SYNTHESIS_PROMPT
+from prompts import SYSTEM_PROMPT, SYNTHESIS_PROMPT, with_project_context
 from providers.errors import ProviderNotConfigured
 
 def _client(api_key: str):
@@ -8,7 +8,8 @@ def _client(api_key: str):
         raise ProviderNotConfigured("Claude (Anthropic) için API key girilmemiş.")
     return anthropic.Anthropic(api_key=api_key, timeout=PROVIDER_TIMEOUT_SECONDS)
 
-def analyze_code(code: str, language: str, api_key: str) -> str:
+def analyze_code(code: str, language: str, api_key: str, project_context: str = "") -> str:
+    content = with_project_context(f"Dil: {language}\n\nKod:\n```\n{code}\n```", project_context)
     message = _client(api_key).messages.create(
         model=MODEL,
         max_tokens=MAX_TOKENS,
@@ -16,7 +17,7 @@ def analyze_code(code: str, language: str, api_key: str) -> str:
         messages=[
             {
                 "role": "user",
-                "content": f"Dil: {language}\n\nKod:\n```\n{code}\n```"
+                "content": content
             }
         ]
     )
@@ -36,9 +37,12 @@ def synthesize(content: str, api_key: str) -> str:
     )
     return message.content[0].text
 
-def analyze_multi(files: list, api_key: str) -> str:
+def analyze_multi(files: list, api_key: str, project_context: str = "") -> str:
     parts = [f"### {f['path']}\n```\n{f['code']}\n```" for f in files]
-    content = "Aşağıdaki dosyalar birbiriyle ilişkili, birlikte analiz et:\n\n" + "\n\n".join(parts)
+    content = with_project_context(
+        "Aşağıdaki dosyalar birbiriyle ilişkili, birlikte analiz et:\n\n" + "\n\n".join(parts),
+        project_context,
+    )
     message = _client(api_key).messages.create(
         model=MODEL,
         max_tokens=MAX_TOKENS,

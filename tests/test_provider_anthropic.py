@@ -53,3 +53,13 @@ def test_synthesize_uses_synthesis_prompt_as_system():
 def test_missing_api_key_raises_provider_not_configured():
     with pytest.raises(ProviderNotConfigured):
         anthropic_provider.analyze_code("x = 1", "Python", api_key="")
+
+
+def test_analyze_code_prepends_project_context_when_given():
+    client = _mock_client("<div>clean</div>")
+    with patch.object(anthropic_provider, "_client", return_value=client):
+        anthropic_provider.analyze_code("print(1)", "Python", api_key="sk-test", project_context="[Proje yapısı]\na.py\nb.py")
+
+    content = client.messages.create.call_args.kwargs["messages"][0]["content"]
+    assert content.startswith("[Proje yapısı]")
+    assert "Dil: Python" in content

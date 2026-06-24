@@ -33,14 +33,14 @@ class TestGroupFilesByContext:
         assert group_files_by_context(files) == [files]
 
     def test_files_under_limit_grouped_together(self):
-        files = [{"path": "a.py", "size": 3000}, {"path": "b.py", "size": 3000}]
+        files = [{"path": "a.py", "size": 11250}, {"path": "b.py", "size": 11250}]
         assert group_files_by_context(files) == [files]
 
     def test_exceeding_limit_starts_new_group(self):
         files = [
-            {"path": "a.py", "size": 3000},
-            {"path": "b.py", "size": 3000},
-            {"path": "c.py", "size": 3000},
+            {"path": "a.py", "size": 11250},
+            {"path": "b.py", "size": 11250},
+            {"path": "c.py", "size": 11250},
         ]
         result = group_files_by_context(files)
         assert result == [[files[0], files[1]], [files[2]]]

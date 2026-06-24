@@ -4,11 +4,11 @@ from providers import get_provider, PROVIDER_LABELS
 
 logger = logging.getLogger("vaultscan.analyzer")
 
-def analyze_code(code: str, language: str, provider: str, api_key: str) -> str:
-    return get_provider(provider).analyze_code(code, language, api_key)
+def analyze_code(code: str, language: str, provider: str, api_key: str, project_context: str = "") -> str:
+    return get_provider(provider).analyze_code(code, language, api_key, project_context)
 
-def analyze_multi(files: list, provider: str, api_key: str) -> str:
-    return get_provider(provider).analyze_multi(files, api_key)
+def analyze_multi(files: list, provider: str, api_key: str, project_context: str = "") -> str:
+    return get_provider(provider).analyze_multi(files, api_key, project_context)
 
 def _build_synthesis_input(per_provider_results: dict, language: str, failed: list) -> str:
     sections = "\n\n".join(
@@ -63,8 +63,8 @@ async def _run_collab(call_fn, providers: list, language: str, api_keys: dict) -
         get_provider(synthesizer).synthesize, synthesis_input, api_keys[synthesizer]
     )
 
-async def analyze_code_collab(code: str, language: str, providers: list, api_keys: dict) -> str:
-    return await _run_collab(lambda p: analyze_code(code, language, p, api_keys[p]), providers, language, api_keys)
+async def analyze_code_collab(code: str, language: str, providers: list, api_keys: dict, project_context: str = "") -> str:
+    return await _run_collab(lambda p: analyze_code(code, language, p, api_keys[p], project_context), providers, language, api_keys)
 
-async def analyze_multi_collab(files: list, providers: list, api_keys: dict) -> str:
-    return await _run_collab(lambda p: analyze_multi(files, p, api_keys[p]), providers, "otomatik tespit", api_keys)
+async def analyze_multi_collab(files: list, providers: list, api_keys: dict, project_context: str = "") -> str:
+    return await _run_collab(lambda p: analyze_multi(files, p, api_keys[p], project_context), providers, "otomatik tespit", api_keys)

@@ -15,7 +15,7 @@ async def test_single_provider_skips_synthesis_entirely():
         result = await analyzer.analyze_code_collab("x = 1", "Python", ["claude"], API_KEYS)
 
     assert result == "<div>claude</div>"
-    mock_claude.assert_called_once_with("x = 1", "Python", "sk-claude")
+    mock_claude.assert_called_once_with("x = 1", "Python", "sk-claude", "")
     mock_synth.assert_not_called()
 
 
@@ -27,8 +27,8 @@ async def test_two_providers_run_in_parallel_and_get_synthesized():
         result = await analyzer.analyze_code_collab("x = 1", "Python", ["claude", "chatgpt"], API_KEYS)
 
     assert result == "<div>merged</div>"
-    mock_claude.assert_called_once_with("x = 1", "Python", "sk-claude")
-    mock_gpt.assert_called_once_with("x = 1", "Python", "sk-gpt")
+    mock_claude.assert_called_once_with("x = 1", "Python", "sk-claude", "")
+    mock_gpt.assert_called_once_with("x = 1", "Python", "sk-gpt", "")
     # first successful provider in the list becomes the synthesizer
     mock_synth.assert_called_once()
     synth_input = mock_synth.call_args.args[0]
@@ -83,7 +83,7 @@ async def test_analyze_multi_collab_single_provider():
         result = await analyzer.analyze_multi_collab(files, ["claude"], API_KEYS)
 
     assert result == "<div>multi-claude</div>"
-    mock_multi.assert_called_once_with(files, "sk-claude")
+    mock_multi.assert_called_once_with(files, "sk-claude", "")
 
 
 @pytest.mark.asyncio

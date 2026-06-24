@@ -33,6 +33,7 @@ SUPPORTED_EXTENSIONS = {
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 MAX_ZIP_ENTRY_SIZE = 2 * 1024 * 1024  # 2 MB (zip bomb koruması)
 MAX_GITHUB_FILES = 50
+MAX_PROJECT_TREE_CHARS = 3000
 
 ANALYSIS_RATE_LIMIT = 10  # her route için kullanıcı bazlı, pencere başına
 ANALYSIS_RATE_WINDOW_SECONDS = 60
@@ -84,7 +85,7 @@ def group_files_by_context(files: list) -> list[list]:
     groups = []
     current_group = []
     current_size = 0
-    MAX_GROUP_SIZE = 8000
+    MAX_GROUP_SIZE = 30000
 
     for f in files:
         size = f.get('size', 0)
@@ -100,6 +101,20 @@ def group_files_by_context(files: list) -> list[list]:
         groups.append(current_group)
 
     return groups
+
+def build_project_context(repo_label: str, paths: list[str]) -> str:
+    tree = "\n".join(paths)
+    if len(tree) > MAX_PROJECT_TREE_CHARS:
+        truncated = tree[:MAX_PROJECT_TREE_CHARS]
+        tree = truncated.rsplit("\n", 1)[0] + "\n... (devamı kısaltıldı)"
+    return (
+        f"[Proje yapısı — {repo_label}]\n"
+        f"Bu depodaki ilgili dosyalar:\n{tree}\n\n"
+        "Aşağıdaki dosya/dosyalar bu projenin bir parçası. Analiz ederken sadece bu "
+        "parçaya değil, projenin genel yapısına da bak; örneğin burada gördüğün bir "
+        "fonksiyon/girdinin başka dosyalarda nasıl çağrılabileceğini, projenin "
+        "amacını dosya adlarından çıkarmaya çalış."
+    )
 
 class AnalyzeRequest(BaseModel):
     code: str
@@ -321,6 +336,7 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
 
                 files.sort(key=lambda f: score_file(f["path"]), reverse=True)
                 files = files[:max(1, min(request.max_files, MAX_GITHUB_FILES))]
+                project_context = build_project_context(f"{owner}/{repo}", [f["path"] for f in files])
 
                 if not files:
                     yield json.dumps({"type": "error", "message": "Desteklenen dosya bulunamadı."}) + "\n"
@@ -361,9 +377,9 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
                     yield json.dumps({"type": "progress", "current": analyzed + 1, "total": len(file_contents), "file": progress_file, "phase": phase}) + "\n"
                     try:
                         if is_multi:
-                            result = await analyze_multi_collab(group, request.providers, api_keys)
+                            result = await analyze_multi_collab(group, request.providers, api_keys, project_context)
                         else:
-                            result = await analyze_code_collab(group[0]["code"], group[0]["language"], request.providers, api_keys)
+                            result = await analyze_code_collab(group[0]["code"], group[0]["language"], request.providers, api_keys, project_context)
                     except Exception as e:
                         result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
                     yield json.dumps({"type": "result", "file": label, "result": result}) + "\n"

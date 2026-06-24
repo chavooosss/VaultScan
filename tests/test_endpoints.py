@@ -260,7 +260,7 @@ def test_upload_zip_multiple_small_files_analyzed_together():
 
 def test_upload_zip_processes_every_group_not_just_the_first():
     buf = io.BytesIO()
-    big_file = "print(1)\n" * 400  # ~3600 karakter, MAX_GROUP_SIZE=8000'in altında
+    big_file = "print(1)\n" * 1500  # ~13500 karakter, MAX_GROUP_SIZE=30000'in altında
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("a.py", big_file)
         zf.writestr("b.py", big_file)
@@ -273,7 +273,7 @@ def test_upload_zip_processes_every_group_not_just_the_first():
 
     data = resp.json()
     assert data["type"] == "zip"
-    # a.py + b.py ilk grupta (birlikte ~7200 karakter), c.py kendi grubunda
+    # a.py + b.py ilk grupta (birlikte ~27000 karakter), c.py kendi grubunda
     # önceden c.py'nin grubu hiç işlenmiyordu (break bug'ı)
     assert len(data["results"]) == 3
     assert {r["file"] for r in data["results"]} == {"a.py", "b.py", "c.py"}
@@ -375,7 +375,8 @@ def test_github_happy_path_streams_progress_and_result():
     assert "progress" in types
     assert "result" in types
     assert types[-1] == "done"
-    mock_analyze.assert_called_once_with("print('hello')", "PY", ["claude"], {"claude": CLAUDE_KEY})
+    assert mock_analyze.call_args.args[:4] == ("print('hello')", "PY", ["claude"], {"claude": CLAUDE_KEY})
+    assert "owner/repo" in mock_analyze.call_args.args[4]
 
 
 @respx.mock
@@ -410,7 +411,7 @@ def test_github_multi_provider_selection_is_passed_to_collab():
 
     lines = [json.loads(l) for l in resp.text.strip().splitlines()]
     assert any(l["type"] == "result" and l["result"] == "<div>merged</div>" for l in lines)
-    mock_analyze.assert_called_once_with(
+    assert mock_analyze.call_args.args[:4] == (
         "print('hello')", "PY", ["claude", "gemini"], {"claude": CLAUDE_KEY, "gemini": GEMINI_KEY}
     )
 

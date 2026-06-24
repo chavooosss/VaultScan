@@ -36,6 +36,9 @@ Eğer kod temizse:
 
 Türkçe yanıt ver. Sadece HTML çıktı ver, başka açıklama ekleme."""
 
+def with_project_context(content: str, project_context: str = "") -> str:
+    return f"{project_context}\n\n{content}" if project_context else content
+
 SYNTHESIS_PROMPT = """Sen birden fazla yapay zeka modelinin aynı kod üzerinde yaptığı güvenlik analizlerini birleştiren bir uzmansın.
 
 Sana farklı AI modellerinin (Claude, ChatGPT, Gemini gibi) aynı kod için ürettiği analiz sonuçları verilecek. Görevin:
