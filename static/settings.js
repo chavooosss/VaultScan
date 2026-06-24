@@ -1,7 +1,10 @@
+let csrfToken = '';
+
 async function loadUserInfo() {
   try {
     const resp = await fetch('/api/me');
     const data = await resp.json();
+    csrfToken = data.csrf_token || '';
     if (!data.authenticated) return;
     document.getElementById('userName').textContent = data.name;
     if (data.picture) {
@@ -50,9 +53,10 @@ async function saveKey(card) {
   }
 
   try {
+    await userInfoReady;
     const resp = await fetch('/api/keys', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
       body: JSON.stringify({ provider, api_key: value })
     });
     const data = await resp.json();
@@ -68,7 +72,8 @@ async function saveKey(card) {
 async function removeKey(card) {
   const provider = card.dataset.provider;
   try {
-    const resp = await fetch(`/api/keys/${provider}`, { method: 'DELETE' });
+    await userInfoReady;
+    const resp = await fetch(`/api/keys/${provider}`, { method: 'DELETE', headers: { 'X-CSRF-Token': csrfToken } });
     const data = await resp.json();
     if (data.error) { setStatus(data.error, true); return; }
     setStatus('Kaldırıldı.', false);
@@ -83,5 +88,5 @@ document.querySelectorAll('.key-card').forEach(card => {
   card.querySelector('.key-remove-btn').addEventListener('click', () => removeKey(card));
 });
 
-loadUserInfo();
+const userInfoReady = loadUserInfo();
 loadKeyStatuses();

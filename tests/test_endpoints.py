@@ -37,6 +37,7 @@ def _logged_in():
     }}
     with patch("main.oauth.google.authorize_access_token", AsyncMock(return_value=fake_token)):
         client.get("/auth/google/callback")
+    client.headers["X-CSRF-Token"] = client.get("/api/me").json()["csrf_token"]
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.google_id == "test-google-id").one()
@@ -52,6 +53,16 @@ def test_analyze_endpoint_requires_login():
     resp = anon_client.post("/analyze", json={"code": "x = 1"})
     assert resp.status_code == 200
     assert "Giriş yapmanız gerekiyor" in resp.json()["error"]
+
+
+def test_analyze_endpoint_rejects_missing_csrf_token():
+    resp = client.post("/analyze", json={"code": "x = 1"}, headers={"X-CSRF-Token": ""})
+    assert "CSRF" in resp.json()["error"]
+
+
+def test_analyze_endpoint_rejects_wrong_csrf_token():
+    resp = client.post("/analyze", json={"code": "x = 1"}, headers={"X-CSRF-Token": "wrong-token"})
+    assert "CSRF" in resp.json()["error"]
 
 
 def test_root_serves_login_page_when_not_authenticated():
@@ -152,6 +163,15 @@ def test_upload_single_file():
     assert data["type"] == "file"
     assert data["result"] == "<div>single</div>"
     mock_analyze.assert_called_once_with("print('hi')", "PY", ["claude"], {"claude": CLAUDE_KEY})
+
+
+def test_upload_rejects_missing_csrf_token():
+    resp = client.post(
+        "/upload",
+        files={"file": ("app.py", b"print(1)", "text/x-python")},
+        headers={"X-CSRF-Token": ""},
+    )
+    assert "CSRF" in resp.json()["error"]
 
 
 def test_upload_endpoint_requires_login():

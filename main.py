@@ -2,6 +2,7 @@ import zipfile
 import io
 import httpx
 import re
+import secrets
 from fastapi import FastAPI, UploadFile, File, Form, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse, RedirectResponse
@@ -102,6 +103,20 @@ def get_current_user(http_request: Request, db: Session) -> User | None:
         return None
     return db.get(User, user_id)
 
+def get_or_create_csrf_token(http_request: Request) -> str:
+    token = http_request.session.get("csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        http_request.session["csrf_token"] = token
+    return token
+
+def verify_csrf(http_request: Request) -> str | None:
+    session_token = http_request.session.get("csrf_token")
+    header_token = http_request.headers.get("x-csrf-token", "")
+    if not session_token or not secrets.compare_digest(session_token, header_token):
+        return "Güvenlik doğrulaması başarısız (CSRF). Sayfayı yenileyip tekrar deneyin."
+    return None
+
 def validate_provider(provider: str, user: User) -> str | None:
     if provider not in PROVIDERS:
         return f"Bilinmeyen AI sağlayıcı: {provider}"
@@ -127,6 +142,9 @@ async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = 
     user = get_current_user(http_request, db)
     if user is None:
         return {"error": "Giriş yapmanız gerekiyor."}
+    csrf_error = verify_csrf(http_request)
+    if csrf_error:
+        return {"error": csrf_error}
     error = validate_providers(request.providers, user)
     if error:
         return {"error": error}
@@ -142,6 +160,9 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
     user = get_current_user(http_request, db)
     if user is None:
         return {"error": "Giriş yapmanız gerekiyor."}
+    csrf_error = verify_csrf(http_request)
+    if csrf_error:
+        return {"error": csrf_error}
     provider_list = [p.strip() for p in providers.split(",") if p.strip()]
     error = validate_providers(provider_list, user)
     if error:
@@ -214,6 +235,9 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
     user = get_current_user(http_request, db)
     if user is None:
         return {"error": "Giriş yapmanız gerekiyor."}
+    csrf_error = verify_csrf(http_request)
+    if csrf_error:
+        return {"error": csrf_error}
     owner, repo = parse_github_url(request.url)
     if not owner or not repo:
         return {"error": "Geçersiz GitHub URL'i."}
@@ -357,6 +381,7 @@ async def me(request: Request, db: Session = Depends(get_db)):
         "authenticated": True,
         "name": request.session.get("user_name", ""),
         "picture": request.session.get("user_picture", ""),
+        "csrf_token": get_or_create_csrf_token(request),
     }
 
 @app.get("/api/keys")
@@ -371,6 +396,9 @@ async def save_key(request: ApiKeyRequest, http_request: Request, db: Session = 
     user = get_current_user(http_request, db)
     if user is None:
         return {"error": "Giriş yapmanız gerekiyor."}
+    csrf_error = verify_csrf(http_request)
+    if csrf_error:
+        return {"error": csrf_error}
     if request.provider not in PROVIDERS:
         return {"error": f"Bilinmeyen AI sağlayıcı: {request.provider}"}
     if not request.api_key.strip():
@@ -383,6 +411,9 @@ async def delete_key(provider: str, request: Request, db: Session = Depends(get_
     user = get_current_user(request, db)
     if user is None:
         return {"error": "Giriş yapmanız gerekiyor."}
+    csrf_error = verify_csrf(request)
+    if csrf_error:
+        return {"error": csrf_error}
     if provider not in PROVIDERS:
         return {"error": f"Bilinmeyen AI sağlayıcı: {provider}"}
     clear_user_api_key(db, user, provider)

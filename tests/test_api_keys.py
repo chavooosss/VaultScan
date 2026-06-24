@@ -19,6 +19,7 @@ def _logged_in():
     }}
     with patch("main.oauth.google.authorize_access_token", AsyncMock(return_value=fake_token)):
         client.get("/auth/google/callback")
+    client.headers["X-CSRF-Token"] = client.get("/api/me").json()["csrf_token"]
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.google_id == "keys-test-google-id").one()
@@ -66,6 +67,15 @@ def test_post_key_is_encrypted_at_rest():
         assert get_user_api_key(user, "chatgpt") == "sk-openai-real-looking-key"
     finally:
         db.close()
+
+
+def test_post_key_rejects_missing_csrf_token():
+    resp = client.post(
+        "/api/keys",
+        json={"provider": "claude", "api_key": "x"},
+        headers={"X-CSRF-Token": ""},
+    )
+    assert "CSRF" in resp.json()["error"]
 
 
 def test_post_key_rejects_unknown_provider():

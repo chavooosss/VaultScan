@@ -85,9 +85,8 @@ def test_me_endpoint_reports_user_info_after_login():
     with patch("main.oauth.google.authorize_access_token", AsyncMock(return_value=fake_token)):
         client.get("/auth/google/callback", follow_redirects=False)
 
-    resp = client.get("/api/me")
-    assert resp.json() == {
-        "authenticated": True,
-        "name": "Me User",
-        "picture": "https://example.com/me.png",
-    }
+    data = client.get("/api/me").json()
+    assert data["authenticated"] is True
+    assert data["name"] == "Me User"
+    assert data["picture"] == "https://example.com/me.png"
+    assert data["csrf_token"]

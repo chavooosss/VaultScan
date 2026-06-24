@@ -1,7 +1,10 @@
+let csrfToken = '';
+
 async function loadUserInfo() {
   try {
     const resp = await fetch('/api/me');
     const data = await resp.json();
+    csrfToken = data.csrf_token || '';
     if (!data.authenticated) return;
     document.getElementById('userName').textContent = data.name;
     if (data.picture) {
@@ -11,6 +14,8 @@ async function loadUserInfo() {
     }
   } catch (e) { /* sessiz geç */ }
 }
+
+const userInfoReady = loadUserInfo();
 
 function applyTheme(theme) {
   if (theme === 'light') {
@@ -32,8 +37,6 @@ function toggleTheme() {
 }
 
 applyTheme(localStorage.getItem('theme'));
-
-loadUserInfo();
 
 function escapeHtml(str) {
   return String(str)
@@ -195,9 +198,10 @@ async function analyze() {
   setLoading('Analiz ediliyor...');
 
   try {
+    await userInfoReady;
     const response = await fetch('/analyze', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
       body: JSON.stringify({ code, language, providers: getSelectedProviders() })
     });
     const data = await response.json();
@@ -230,7 +234,8 @@ async function handleFile(file) {
   formData.append('providers', getSelectedProviders().join(','));
 
   try {
-    const response = await fetch('/upload', { method: 'POST', body: formData });
+    await userInfoReady;
+    const response = await fetch('/upload', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, body: formData });
     const data = await response.json();
     if (data.error) { setError(data.error); return; }
     setResult(data.type === 'zip' ? buildZipHtml(data.results) : data.result);
@@ -257,9 +262,10 @@ async function analyzeGithub() {
   let repo = '';
 
   try {
+    await userInfoReady;
     const response = await fetch('/github', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
       body: JSON.stringify({ url, token, providers: getSelectedProviders() })
     });
 
