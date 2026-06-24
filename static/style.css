@@ -930,6 +930,15 @@ button.back-link:hover { background: transparent; box-shadow: none; }
   }
 }
 
+/* .settings-container is always ~640px wide regardless of viewport,
+   so its user-bar needs the same wrapping treatment unconditionally. */
+.settings-container .user-bar {
+  position: static;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .finding { animation: none; }
   .skeleton { animation: none; }
