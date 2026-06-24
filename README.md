@@ -18,6 +18,7 @@ Asıl farkı: tek bir yapay zekâya değil, istersen aynı anda birden fazla yap
 - **Google ile giriş** — uygulamayı kullanmak için Google hesabınla giriş yapman gerekir.
 - **Kendi API key'in (BYOK)** — VaultScan'in kendi AI key'i yok; her kullanıcı `/settings` sayfasından kendi Claude/ChatGPT/Gemini key'ini ekler ve analizlerde kendi key'i kullanılır. Key'ler şifrelenmiş olarak saklanır.
 - **Rapor dışa aktarma** — sonucu Markdown olarak indir veya PDF olarak yazdır.
+- **Analiz geçmişi** — `/history` sayfasında geçmiş analizlerinin raporlarını (kod/dosya/repo içeriği hariç) görebilirsin; `/settings`'ten istediğin zaman kapatabilirsin.
 
 ## Nasıl çalışır?
 

@@ -9,7 +9,7 @@ import respx
 from fastapi.testclient import TestClient
 
 from main import app
-from db import SessionLocal, User, set_user_api_key, clear_user_api_key
+from db import SessionLocal, User, set_user_api_key, clear_user_api_key, set_history_enabled, get_user_history
 
 client = TestClient(app)
 
@@ -134,6 +134,50 @@ def test_analyze_endpoint_default_language():
     mock_analyze.assert_called_once_with("x = 1", "otomatik tespit", ["claude"], {"claude": CLAUDE_KEY})
 
 
+def test_analyze_endpoint_saves_history_when_enabled():
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.google_id == "test-google-id").one()
+        set_history_enabled(db, user, True)
+    finally:
+        db.close()
+
+    with patch("main.analyze_code_collab", AsyncMock(return_value="<div>saved</div>")):
+        client.post("/analyze", json={"code": "print(1)", "language": "Python"})
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.google_id == "test-google-id").one()
+        history = get_user_history(db, user)
+        assert history[0].result_html == "<div>saved</div>"
+        assert history[0].source_type == "paste"
+        assert history[0].providers == "claude"
+    finally:
+        db.close()
+
+
+def test_analyze_endpoint_skips_history_when_disabled():
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.google_id == "test-google-id").one()
+        set_history_enabled(db, user, False)
+        before = len(get_user_history(db, user))
+    finally:
+        db.close()
+
+    with patch("main.analyze_code_collab", AsyncMock(return_value="<div>not-saved</div>")):
+        client.post("/analyze", json={"code": "print(1)", "language": "Python"})
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.google_id == "test-google-id").one()
+        after = len(get_user_history(db, user))
+        set_history_enabled(db, user, True)  # diğer testler için varsayılana döndür
+    finally:
+        db.close()
+    assert after == before
+
+
 def test_analyze_endpoint_unknown_provider_returns_error():
     resp = client.post("/analyze", json={"code": "x = 1", "providers": ["not-a-real-provider"]})
     assert resp.status_code == 200
@@ -190,6 +234,28 @@ def test_upload_single_file():
     assert data["type"] == "file"
     assert data["result"] == "<div>single</div>"
     mock_analyze.assert_called_once_with("print('hi')", "PY", ["claude"], {"claude": CLAUDE_KEY})
+
+
+def test_upload_single_file_saves_history():
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.google_id == "test-google-id").one()
+        set_history_enabled(db, user, True)
+    finally:
+        db.close()
+
+    with patch("main.analyze_code_collab", AsyncMock(return_value="<div>single</div>")):
+        client.post("/upload", files={"file": ("app.py", b"print('hi')", "text/x-python")})
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.google_id == "test-google-id").one()
+        history = get_user_history(db, user)
+        assert history[0].source_type == "file"
+        assert history[0].source_label == "app.py"
+        assert history[0].result_html == "<div>single</div>"
+    finally:
+        db.close()
 
 
 def test_upload_rejects_missing_csrf_token():
@@ -377,6 +443,38 @@ def test_github_happy_path_streams_progress_and_result():
     assert types[-1] == "done"
     assert mock_analyze.call_args.args[:4] == ("print('hello')", "PY", ["claude"], {"claude": CLAUDE_KEY})
     assert "owner/repo" in mock_analyze.call_args.args[4]
+
+
+@respx.mock
+def test_github_happy_path_saves_one_history_entry():
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.google_id == "test-google-id").one()
+        set_history_enabled(db, user, True)
+    finally:
+        db.close()
+
+    tree = {"tree": [{"path": "main.py", "type": "blob", "size": 100}]}
+    respx.get("https://api.github.com/repos/owner/repo/git/trees/HEAD").mock(
+        return_value=httpx.Response(200, json=tree)
+    )
+    respx.get("https://raw.githubusercontent.com/owner/repo/HEAD/main.py").mock(
+        return_value=httpx.Response(200, text="print('hello')")
+    )
+
+    with patch("main.analyze_code_collab", AsyncMock(return_value="<div>found nothing</div>")):
+        client.post("/github", json={"url": "https://github.com/owner/repo"})
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.google_id == "test-google-id").one()
+        history = get_user_history(db, user)
+        assert history[0].source_type == "github"
+        assert history[0].source_label == "owner/repo"
+        assert "main.py" in history[0].result_html
+        assert "found nothing" in history[0].result_html
+    finally:
+        db.close()
 
 
 @respx.mock

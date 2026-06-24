@@ -1,4 +1,5 @@
 import zipfile
+import html
 import io
 import httpx
 import re
@@ -16,7 +17,10 @@ from analyzer import analyze_code_collab, analyze_multi_collab
 from providers import PROVIDERS, PROVIDER_LABELS, DEFAULT_PROVIDER
 from authlib.integrations.base_client.errors import OAuthError
 from auth import oauth
-from db import init_db, get_db, get_or_create_user, get_user_api_key, set_user_api_key, clear_user_api_key, User
+from db import (
+    init_db, get_db, get_or_create_user, get_user_api_key, set_user_api_key, clear_user_api_key, User,
+    save_analysis, get_user_history, get_analysis_by_id, delete_analysis, set_history_enabled,
+)
 from config import SESSION_SECRET
 import json
 
@@ -116,6 +120,12 @@ def build_project_context(repo_label: str, paths: list[str]) -> str:
         "amacını dosya adlarından çıkarmaya çalış."
     )
 
+def combine_results_html(results: list[dict]) -> str:
+    return "".join(
+        f'<div class="file-section"><div class="file-name">📄 {html.escape(r["file"])}</div>{r["result"]}</div>'
+        for r in results
+    )
+
 class AnalyzeRequest(BaseModel):
     code: str
     language: str = "otomatik tespit"
@@ -130,6 +140,9 @@ class GithubRequest(BaseModel):
 class ApiKeyRequest(BaseModel):
     provider: str
     api_key: str
+
+class HistoryToggleRequest(BaseModel):
+    enabled: bool
 
 def parse_github_url(url: str):
     url = url.strip().rstrip("/").replace(".git", "")
@@ -198,6 +211,8 @@ async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = 
         result = await analyze_code_collab(request.code, request.language, request.providers, api_keys)
     except Exception as e:
         return {"error": f"Analiz hatası: {e}"}
+    if user.history_enabled:
+        save_analysis(db, user, request.providers, "paste", "Yapıştırılan kod", result)
     return {"result": result}
 
 @app.post("/upload")
@@ -264,6 +279,8 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
             else:
                 results.append({"file": group[0]['path'], "result": result})
 
+        if user.history_enabled:
+            save_analysis(db, user, provider_list, "file", filename, combine_results_html(results))
         return {"type": "zip", "results": results}
 
     ext = "." + filename.split(".")[-1].lower() if "." in filename else ""
@@ -276,6 +293,8 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
         result = await analyze_code_collab(code, language, provider_list, api_keys)
     except Exception as e:
         return {"error": f"Analiz hatası: {e}"}
+    if user.history_enabled:
+        save_analysis(db, user, provider_list, "file", filename, result)
     return {"type": "file", "result": result}
 
 @app.post("/github")
@@ -367,6 +386,7 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
 
                 groups = group_files_by_context(file_contents)
                 analyzed = 0
+                history_results = []
 
                 for group in groups:
                     is_multi = len(group) > 1
@@ -383,7 +403,11 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
                     except Exception as e:
                         result = f"<p class=\"error-text\">Analiz hatası: {e}</p>"
                     yield json.dumps({"type": "result", "file": label, "result": result}) + "\n"
+                    history_results.append({"file": label, "result": result})
                     analyzed += len(group)
+
+                if user.history_enabled and history_results:
+                    save_analysis(db, user, request.providers, "github", f"{owner}/{repo}", combine_results_html(history_results))
 
                 yield json.dumps({"type": "done"}) + "\n"
         except httpx.TimeoutException:
@@ -471,6 +495,66 @@ async def delete_key(provider: str, request: Request, db: Session = Depends(get_
     clear_user_api_key(db, user, provider)
     return {"ok": True}
 
+@app.get("/api/history")
+async def list_history(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if user is None:
+        return {"error": "Giriş yapmanız gerekiyor."}
+    history = get_user_history(db, user)
+    return {
+        "history_enabled": user.history_enabled,
+        "items": [
+            {
+                "id": a.id,
+                "created_at": a.created_at.isoformat(),
+                "providers": a.providers.split(","),
+                "source_type": a.source_type,
+                "source_label": a.source_label,
+            }
+            for a in history
+        ],
+    }
+
+@app.post("/api/history/toggle")
+async def toggle_history(request: HistoryToggleRequest, http_request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(http_request, db)
+    if user is None:
+        return {"error": "Giriş yapmanız gerekiyor."}
+    csrf_error = verify_csrf(http_request)
+    if csrf_error:
+        return {"error": csrf_error}
+    set_history_enabled(db, user, request.enabled)
+    return {"ok": True, "history_enabled": user.history_enabled}
+
+@app.get("/api/history/{analysis_id}")
+async def get_history_item(analysis_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if user is None:
+        return {"error": "Giriş yapmanız gerekiyor."}
+    analysis = get_analysis_by_id(db, user, analysis_id)
+    if analysis is None:
+        return {"error": "Kayıt bulunamadı."}
+    return {
+        "id": analysis.id,
+        "created_at": analysis.created_at.isoformat(),
+        "providers": analysis.providers.split(","),
+        "source_type": analysis.source_type,
+        "source_label": analysis.source_label,
+        "result": analysis.result_html,
+    }
+
+@app.delete("/api/history/{analysis_id}")
+async def delete_history_item(analysis_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if user is None:
+        return {"error": "Giriş yapmanız gerekiyor."}
+    csrf_error = verify_csrf(request)
+    if csrf_error:
+        return {"error": csrf_error}
+    if not delete_analysis(db, user, analysis_id):
+        return {"error": "Kayıt bulunamadı."}
+    return {"ok": True}
+
 @app.get("/")
 async def root(request: Request):
     if not request.session.get("user_id"):
@@ -486,5 +570,11 @@ async def settings_page(request: Request):
 @app.get("/gizlilik")
 async def privacy_page():
     return FileResponse("static/privacy.html")
+
+@app.get("/history")
+async def history_page(request: Request):
+    if not request.session.get("user_id"):
+        return FileResponse("static/login.html")
+    return FileResponse("static/history.html")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")

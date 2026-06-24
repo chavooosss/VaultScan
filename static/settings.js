@@ -26,7 +26,7 @@ async function loadKeyStatuses() {
     const resp = await fetch('/api/keys');
     const data = await resp.json();
     if (data.error) return;
-    document.querySelectorAll('.key-card').forEach(card => {
+    document.querySelectorAll('.key-list .key-card').forEach(card => {
       const provider = card.dataset.provider;
       const statusEl = card.querySelector('[data-status]');
       const removeBtn = card.querySelector('.key-remove-btn');
@@ -83,10 +83,38 @@ async function removeKey(card) {
   }
 }
 
-document.querySelectorAll('.key-card').forEach(card => {
+document.querySelectorAll('.key-list .key-card').forEach(card => {
   card.querySelector('.key-save-btn').addEventListener('click', () => saveKey(card));
   card.querySelector('.key-remove-btn').addEventListener('click', () => removeKey(card));
 });
 
+async function loadHistoryToggle() {
+  try {
+    const resp = await fetch('/api/history');
+    const data = await resp.json();
+    if (data.error) return;
+    document.getElementById('historyToggleInput').checked = !!data.history_enabled;
+  } catch (e) { /* sessiz geç */ }
+}
+
+document.getElementById('historyToggleInput').addEventListener('change', async (e) => {
+  const enabled = e.target.checked;
+  try {
+    await userInfoReady;
+    const resp = await fetch('/api/history/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+      body: JSON.stringify({ enabled })
+    });
+    const data = await resp.json();
+    if (data.error) { setStatus(data.error, true); e.target.checked = !enabled; return; }
+    setStatus(enabled ? 'Analiz geçmişi açıldı.' : 'Analiz geçmişi kapatıldı.', false);
+  } catch (err) {
+    setStatus('Hata: ' + err.message, true);
+    e.target.checked = !enabled;
+  }
+});
+
 const userInfoReady = loadUserInfo();
 loadKeyStatuses();
+loadHistoryToggle();

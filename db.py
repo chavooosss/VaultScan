@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from cryptography.fernet import Fernet
-from sqlalchemy import create_engine, String, DateTime, Text, inspect, text
+from sqlalchemy import create_engine, String, DateTime, Text, Boolean, ForeignKey, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 from config import ENCRYPTION_KEY
@@ -36,6 +36,18 @@ class User(Base):
     anthropic_api_key_enc: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
     openai_api_key_enc: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
     gemini_api_key_enc: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    history_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+class Analysis(Base):
+    __tablename__ = "analyses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    providers: Mapped[str] = mapped_column(String(128))
+    source_type: Mapped[str] = mapped_column(String(20))
+    source_label: Mapped[str] = mapped_column(String(255))
+    result_html: Mapped[str] = mapped_column(Text)
 
 def _migrate_users_table():
     """create_all yeni tablo açar ama var olan tabloya kolon eklemez; SQLite için elle ALTER TABLE gerekir."""
@@ -50,6 +62,8 @@ def _migrate_users_table():
     for column in API_KEY_COLUMNS.values():
         if column not in existing:
             statements.append(f"ALTER TABLE users ADD COLUMN {column} TEXT")
+    if "history_enabled" not in existing:
+        statements.append("ALTER TABLE users ADD COLUMN history_enabled BOOLEAN DEFAULT TRUE")
     if statements:
         with engine.begin() as conn:
             for stmt in statements:
@@ -100,3 +114,44 @@ def get_or_create_user(db, google_id: str, email: str, name: str, picture: str =
         user.picture = picture
         db.commit()
     return user
+
+def set_history_enabled(db, user: User, enabled: bool) -> None:
+    user.history_enabled = enabled
+    db.commit()
+
+def save_analysis(db, user: User, providers: list[str], source_type: str, source_label: str, result_html: str) -> Analysis:
+    analysis = Analysis(
+        user_id=user.id,
+        providers=",".join(providers),
+        source_type=source_type,
+        source_label=source_label[:255],
+        result_html=result_html,
+    )
+    db.add(analysis)
+    db.commit()
+    db.refresh(analysis)
+    return analysis
+
+def get_user_history(db, user: User, limit: int = 50) -> list[Analysis]:
+    return (
+        db.query(Analysis)
+        .filter(Analysis.user_id == user.id)
+        .order_by(Analysis.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+def get_analysis_by_id(db, user: User, analysis_id: int) -> Optional[Analysis]:
+    return (
+        db.query(Analysis)
+        .filter(Analysis.id == analysis_id, Analysis.user_id == user.id)
+        .one_or_none()
+    )
+
+def delete_analysis(db, user: User, analysis_id: int) -> bool:
+    analysis = get_analysis_by_id(db, user, analysis_id)
+    if analysis is None:
+        return False
+    db.delete(analysis)
+    db.commit()
+    return True
