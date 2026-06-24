@@ -156,6 +156,24 @@ def test_analyze_endpoint_saves_history_when_enabled():
         db.close()
 
 
+def test_analyze_endpoint_saves_severity_counts_computed_from_badges():
+    mocked_result = (
+        '<div class="finding"><span class="badge badge-critical">kritik</span></div>'
+        '<div class="finding"><span class="badge badge-high">yüksek</span></div>'
+        '<div class="finding"><span class="badge badge-high">yüksek</span></div>'
+    )
+    with patch("main.analyze_code_collab", AsyncMock(return_value=mocked_result)):
+        client.post("/analyze", json={"code": "print(1)", "language": "Python"})
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.google_id == "test-google-id").one()
+        history = get_user_history(db, user)
+        assert history[0].severity_counts == "1,2,0,0"
+    finally:
+        db.close()
+
+
 def test_analyze_endpoint_skips_history_when_disabled():
     db = SessionLocal()
     try:

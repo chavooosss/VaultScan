@@ -23,6 +23,7 @@ from auth import oauth
 from db import (
     init_db, get_db, get_or_create_user, get_user_api_key, set_user_api_key, clear_user_api_key, User,
     save_analysis, get_user_history, get_analysis_by_id, delete_analysis, set_history_enabled,
+    severity_counts_str,
 )
 from config import SESSION_SECRET
 import json
@@ -167,6 +168,13 @@ def combine_results_html(results: list[dict]) -> str:
         for r in results
     )
 
+def parse_severity_counts(stored: str) -> dict:
+    try:
+        critical, high, medium, low = (int(x) for x in stored.split(","))
+    except (ValueError, AttributeError):
+        critical, high, medium, low = 0, 0, 0, 0
+    return {"critical": critical, "high": high, "medium": medium, "low": low}
+
 class AnalyzeRequest(BaseModel):
     code: str
     language: str = "otomatik tespit"
@@ -265,7 +273,7 @@ async def analyze(request: AnalyzeRequest, http_request: Request, db: Session = 
             yield json.dumps({"type": "error", "message": f"Analiz hatası: {e}"}) + "\n"
             return
         if user.history_enabled:
-            save_analysis(db, user, request.providers, "paste", "Yapıştırılan kod", result)
+            save_analysis(db, user, request.providers, "paste", "Yapıştırılan kod", result, severity_counts_str(result))
         yield json.dumps({"type": "result", "result": result}) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
@@ -362,10 +370,8 @@ async def upload_file(http_request: Request, file: UploadFile = File(...), provi
                 results.append({"file": group[0]['path'], "result": result})
 
         if user.history_enabled:
-            save_analysis(
-                db, user, provider_list, "file", filename,
-                combine_results_html(results) if is_zip else results[0]["result"],
-            )
+            history_html = combine_results_html(results) if is_zip else results[0]["result"]
+            save_analysis(db, user, provider_list, "file", filename, history_html, severity_counts_str(history_html))
 
         if is_zip:
             yield json.dumps({"type": "result", "result_type": "zip", "results": results}) + "\n"
@@ -490,7 +496,8 @@ async def analyze_github(request: GithubRequest, http_request: Request, db: Sess
                     analyzed += len(group)
 
                 if user.history_enabled and history_results:
-                    save_analysis(db, user, request.providers, "github", f"{owner}/{repo}", combine_results_html(history_results))
+                    github_history_html = combine_results_html(history_results)
+                    save_analysis(db, user, request.providers, "github", f"{owner}/{repo}", github_history_html, severity_counts_str(github_history_html))
 
                 yield json.dumps({"type": "done"}) + "\n"
         except httpx.TimeoutException:
@@ -594,6 +601,7 @@ async def list_history(request: Request, db: Session = Depends(get_db)):
                 "providers": a.providers.split(","),
                 "source_type": a.source_type,
                 "source_label": a.source_label,
+                "severity_counts": parse_severity_counts(a.severity_counts),
             }
             for a in history
         ],

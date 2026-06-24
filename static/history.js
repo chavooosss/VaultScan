@@ -49,6 +49,7 @@ async function loadHistory() {
           <span class="history-item-label">${escapeHtml(item.source_label)}</span>
           <span class="hint">${SOURCE_LABELS[item.source_type] || item.source_type} · ${formatDate(item.created_at)}</span>
           <div class="history-item-providers">${renderProviders(item.providers)}</div>
+          ${severityBarHtml(item.severity_counts)}
         </div>
         <div class="history-item-actions">
           <button class="btn-copy history-view-btn" data-id="${item.id}">Görüntüle</button>

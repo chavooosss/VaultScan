@@ -123,6 +123,26 @@ def test_save_analysis_and_list_for_user():
     assert history[1].providers == "claude,gemini"
 
 
+def test_save_analysis_defaults_severity_counts_to_zero():
+    db = _make_session()
+    user = get_or_create_user(db, google_id="g-1", email="a@b.com", name="Ali")
+
+    save_analysis(db, user, ["claude"], "paste", "Kod", "<div>r1</div>")
+
+    history = get_user_history(db, user)
+    assert history[0].severity_counts == "0,0,0,0"
+
+
+def test_save_analysis_stores_given_severity_counts():
+    db = _make_session()
+    user = get_or_create_user(db, google_id="g-1", email="a@b.com", name="Ali")
+
+    save_analysis(db, user, ["claude"], "paste", "Kod", "<div>r1</div>", "2,1,0,3")
+
+    history = get_user_history(db, user)
+    assert history[0].severity_counts == "2,1,0,3"
+
+
 def test_history_is_scoped_per_user():
     db = _make_session()
     user1 = get_or_create_user(db, google_id="g-1", email="a@b.com", name="Ali")

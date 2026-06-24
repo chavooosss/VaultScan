@@ -48,7 +48,7 @@ def test_list_history_returns_saved_entries_without_full_result():
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.google_id == "history-test-google-id").one()
-        save_analysis(db, user, ["claude", "gemini"], "paste", "Yapıştırılan kod", "<div>full report</div>")
+        save_analysis(db, user, ["claude", "gemini"], "paste", "Yapıştırılan kod", "<div>full report</div>", "1,2,0,3")
     finally:
         db.close()
 
@@ -59,6 +59,7 @@ def test_list_history_returns_saved_entries_without_full_result():
     assert item["source_type"] == "paste"
     assert item["source_label"] == "Yapıştırılan kod"
     assert item["providers"] == ["claude", "gemini"]
+    assert item["severity_counts"] == {"critical": 1, "high": 2, "medium": 0, "low": 3}
     assert "result" not in item
 
 

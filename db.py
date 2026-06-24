@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -48,6 +49,7 @@ class Analysis(Base):
     source_type: Mapped[str] = mapped_column(String(20))
     source_label: Mapped[str] = mapped_column(String(255))
     result_html: Mapped[str] = mapped_column(Text)
+    severity_counts: Mapped[str] = mapped_column(String(32), default="0,0,0,0")
 
 def _migrate_users_table():
     """create_all yeni tablo açar ama var olan tabloya kolon eklemez; SQLite için elle ALTER TABLE gerekir."""
@@ -69,9 +71,36 @@ def _migrate_users_table():
             for stmt in statements:
                 conn.execute(text(stmt))
 
+_SEVERITY_BADGE_RE = re.compile(r"badge-(critical|high|medium|low)\b")
+
+def severity_counts_str(result_html: str) -> str:
+    """Geçmiş listesinde küçük bir önem derecesi göstergesi çizebilmek için
+    sonuç HTML'indeki badge-* sınıflarını sayar. Sırasıyla: kritik,yüksek,orta,düşük."""
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    for match in _SEVERITY_BADGE_RE.finditer(result_html):
+        counts[match.group(1)] += 1
+    return f"{counts['critical']},{counts['high']},{counts['medium']},{counts['low']}"
+
+def _migrate_analyses_table():
+    """analyses tablosu zaten varsa (önceki bir deploy'dan), eksik kolonları ekle."""
+    inspector = inspect(engine)
+    if "analyses" not in inspector.get_table_names():
+        return
+    existing = {col["name"] for col in inspector.get_columns("analyses")}
+    if "severity_counts" not in existing:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE analyses ADD COLUMN severity_counts VARCHAR(32) DEFAULT '0,0,0,0'"))
+        # Bu kolon yeni eklendiği için var olan kayıtlarda hepsi '0,0,0,0' olur;
+        # gerçek değeri zaten kaydedilmiş result_html'den geriye dönük hesapla.
+        with SessionLocal() as backfill_db:
+            for analysis in backfill_db.query(Analysis).all():
+                analysis.severity_counts = severity_counts_str(analysis.result_html)
+            backfill_db.commit()
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     _migrate_users_table()
+    _migrate_analyses_table()
 
 def get_db():
     db = SessionLocal()
@@ -119,13 +148,17 @@ def set_history_enabled(db, user: User, enabled: bool) -> None:
     user.history_enabled = enabled
     db.commit()
 
-def save_analysis(db, user: User, providers: list[str], source_type: str, source_label: str, result_html: str) -> Analysis:
+def save_analysis(
+    db, user: User, providers: list[str], source_type: str, source_label: str, result_html: str,
+    severity_counts: str = "0,0,0,0",
+) -> Analysis:
     analysis = Analysis(
         user_id=user.id,
         providers=",".join(providers),
         source_type=source_type,
         source_label=source_label[:255],
         result_html=result_html,
+        severity_counts=severity_counts,
     )
     db.add(analysis)
     db.commit()
