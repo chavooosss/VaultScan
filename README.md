@@ -23,7 +23,7 @@ Asıl farkı: tek bir yapay zekâya değil, istersen aynı anda birden fazla yap
 ## Nasıl çalışır?
 
 1. Google hesabınla giriş yaparsın.
-2. `/settings` sayfasından kullanacağın AI sağlayıcı(lar)ın için kendi API key'ini eklersin (Claude key'i ücretli; ChatGPT ve Gemini'nin ücretsiz katmanları var).
+2. `/settings` sayfasından kullanacağın AI sağlayıcı(lar)ın için kendi API key'ini eklersin (Claude ve ChatGPT key'leri ücretli — hesabında ödeme yöntemi/kredi olması gerekir; Gemini'nin ücretsiz katmanı var).
 3. Kod yapıştırır, dosya yükler veya bir GitHub repo verirsin.
 4. Hangi yapay zekâ(lar)ı kullanmak istediğini seçersin.
 5. VaultScan kodu seçtiğin AI sağlayıcı(lar)ına — senin kendi key'inle — gönderir, gelen sonuçları okunabilir bir HTML rapora çevirir.
