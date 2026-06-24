@@ -8,6 +8,7 @@ httpx
 python-multipart
 authlib
 sqlalchemy
+psycopg2-binary
 itsdangerous
 cryptography
 pytest
