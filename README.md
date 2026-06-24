@@ -107,7 +107,7 @@ VaultScan/
 VaultScan is under active development. Currently being worked on / planned:
 
 - More UI polish
-- Payment/subscription integration (currently on hold — see project notes)
+
 
 ## License
 
