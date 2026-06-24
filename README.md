@@ -7,9 +7,9 @@
 
 VaultScan is a tool that lets you point AI at your code and ask: "is there a security vulnerability here?" Paste a code snippet, upload a file/ZIP, or give it a GitHub repo link — VaultScan reads the code, flags risky spots (SQL injection, XSS, leaked secrets, weak validation, and more), and shows you a readable report.
 
-**Live at: https://vaultscan-pxyt.onrender.com**
+**Live at: https://vaultscan-pxyt.onrender.com · [Try the no-login demo →](https://vaultscan-pxyt.onrender.com/demo)**
 
-![VaultScan — Claude, ChatGPT, and Gemini collaboratively reviewing the same code, with findings merged into one report](docs/hero.png)
+![VaultScan demo — picking an example, the AI analysis running, and the merged multi-model report appearing with a severity bar and provider tags](docs/demo.gif)
 
 ## What's the point?
 
@@ -19,6 +19,7 @@ What makes it different: instead of relying on a single model, you can run Claud
 
 ## Features
 
+- **No-login demo** — [`/demo`](https://vaultscan-pxyt.onrender.com/demo) lets anyone try the full UI and see real example reports with no sign-in or API key required.
 - **Paste code** — drop in a snippet and analyze it directly.
 - **Upload a file / ZIP** — single file or a ZIP with many files; VaultScan prioritizes the most security-relevant files first.
 - **GitHub repo analysis** — give it a repo URL (public, or private with a token) and watch it scan file by file with live progress.
