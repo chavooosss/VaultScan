@@ -16,16 +16,17 @@ Asıl farkı: tek bir yapay zekâya değil, istersen aynı anda birden fazla yap
 - **Çoklu yapay zekâ desteği** — Claude (Anthropic), ChatGPT (OpenAI) ve Gemini (Google) arasından istediğini seç.
 - **Birlikte analiz (collaborative mode)** — birden fazla AI'yı aynı anda seçtiğinde, hepsinin bulguları tek bir raporda birleştirilir ve hangi AI'nın neyi bulduğu belirtilir.
 - **Google ile giriş** — uygulamayı kullanmak için Google hesabınla giriş yapman gerekir.
-- **Aylık ücretsiz kullanım hakkı** — her kullanıcı ayda 10 ücretsiz analiz hakkına sahiptir; daha fazlası için premium gerekir (şu an premium yükseltmesi manuel olarak yönetiliyor).
+- **Kendi API key'in (BYOK)** — VaultScan'in kendi AI key'i yok; her kullanıcı `/settings` sayfasından kendi Claude/ChatGPT/Gemini key'ini ekler ve analizlerde kendi key'i kullanılır. Key'ler şifrelenmiş olarak saklanır.
 - **Rapor dışa aktarma** — sonucu Markdown olarak indir veya PDF olarak yazdır.
 
 ## Nasıl çalışır?
 
 1. Google hesabınla giriş yaparsın.
-2. Kod yapıştırır, dosya yükler veya bir GitHub repo verirsin.
-3. Hangi yapay zekâ(lar)ı kullanmak istediğini seçersin.
-4. VaultScan kodu seçtiğin AI sağlayıcı(lar)ına gönderir, gelen sonuçları okunabilir bir HTML rapora çevirir.
-5. Birden fazla AI seçtiysen, sonuçlar otomatik olarak birleştirilip tek bir rapor haline getirilir.
+2. `/settings` sayfasından kullanacağın AI sağlayıcı(lar)ın için kendi API key'ini eklersin (Claude key'i ücretli; ChatGPT ve Gemini'nin ücretsiz katmanları var).
+3. Kod yapıştırır, dosya yükler veya bir GitHub repo verirsin.
+4. Hangi yapay zekâ(lar)ı kullanmak istediğini seçersin.
+5. VaultScan kodu seçtiğin AI sağlayıcı(lar)ına — senin kendi key'inle — gönderir, gelen sonuçları okunabilir bir HTML rapora çevirir.
+6. Birden fazla AI seçtiysen, sonuçlar otomatik olarak birleştirilip tek bir rapor haline getirilir.
 
 ## Kurulum
 
@@ -51,13 +52,11 @@ cp .env.example .env
 
 | Değişken | Ne işe yarar |
 |---|---|
-| `ANTHROPIC_API_KEY` | Claude analizleri için (console.anthropic.com) |
-| `OPENAI_API_KEY` | ChatGPT analizleri için (platform.openai.com) |
-| `GEMINI_API_KEY` | Gemini analizleri için (aistudio.google.com) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google ile giriş için (Google Cloud Console'dan OAuth Client ID oluştur) |
 | `SESSION_SECRET` | Oturum çerezlerini imzalamak için rastgele bir metin (örn. `python -c "import secrets; print(secrets.token_hex(32))"`) |
+| `ENCRYPTION_KEY` | Kullanıcıların kendi AI API key'lerini veritabanında şifreli saklamak için (örn. `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`) |
 
-Hepsini doldurman gerekmez — sadece kullanacağın AI sağlayıcının key'ini girmen yeterli, diğerleri boş kalabilir.
+VaultScan'in kendi AI key'i yok — her kullanıcı kendi Claude/ChatGPT/Gemini key'ini uygulama içinden (`/settings`) girer, `.env`'e AI key'i eklemene gerek yok.
 
 Sunucuyu başlat:
 
@@ -87,15 +86,14 @@ Testler kendi izole veritabanı dosyasını kullanır, gerçek verine dokunmaz.
 
 ```
 VaultScan/
-├── main.py              # FastAPI route'ları (analyze, upload, github, auth, billing vs.)
+├── main.py              # FastAPI route'ları (analyze, upload, github, auth, API key yönetimi vs.)
 ├── analyzer.py          # Tek/çoklu AI analiz akışı, sonuçları birleştirme mantığı
 ├── db.py                # SQLAlchemy modelleri (User) ve veritabanı yardımcıları
 ├── auth.py              # Google OAuth istemcisi
 ├── config.py            # Ortam değişkenlerini okuyan ayar dosyası
 ├── prompts.py           # AI'lara gönderilen sistem promptları
 ├── providers/           # Her AI sağlayıcı için ayrı modül (claude/chatgpt/gemini)
-├── scripts/             # Yönetimsel CLI scriptleri (örn. kullanıcıyı premium yapma)
-├── static/              # Frontend (HTML/CSS/JS)
+├── static/              # Frontend (HTML/CSS/JS, /settings sayfası dahil)
 └── tests/               # pytest test paketi
 ```
 
@@ -103,9 +101,8 @@ VaultScan/
 
 VaultScan aktif geliştiriliyor. Şu an üzerinde çalışılan/planlanan konular:
 
-- Kullanıcıların kendi API key'lerini girip kullanabilmesi (bring-your-own-key)
-- Ödeme/abonelik entegrasyonu ile premium yükseltmenin otomatikleşmesi
 - Arayüz iyileştirmeleri
+- Ödeme/abonelik entegrasyonu (şu an beklemede — bkz. proje notları)
 
 ## Lisans
 
