@@ -1,37 +1,38 @@
 # VaultScan
 
-VaultScan, kodunu yapay zekâya gösterip "burada güvenlik açığı var mı?" diye sorduğun bir araç. Kod yapıştırabilir, bir dosya/zip yükleyebilir veya bir GitHub repo linki verebilirsin — VaultScan kodu okur, riskli noktaları (SQL injection, XSS, sızdırılmış şifreler, zayıf doğrulama gibi) bulur ve sana okunabilir bir rapor olarak gösterir.
+VaultScan is a tool that lets you point AI at your code and ask: "is there a security vulnerability here?" Paste a code snippet, upload a file/ZIP, or give it a GitHub repo link — VaultScan reads the code, flags risky spots (SQL injection, XSS, leaked secrets, weak validation, and more), and shows you a readable report.
 
-## Bu ne işe yarar? (kısaca)
+Live at: https://vaultscan-pxyt.onrender.com
 
-Diyelim bir proje yazdın ve "bunda güvenlik açığı var mı, kontrol ettirsem mi?" diye düşünüyorsun ama bir güvenlik uzmanı tutmak istemiyorsun. VaultScan tam bunun için: kodunu (veya tüm projeni) yapay zekâya gösterir, bulduğu sorunları "ne kadar ciddi" (kritik / yüksek / orta / düşük) etiketiyle birlikte sana listeler.
+## What's the point?
 
-Asıl farkı: tek bir yapay zekâya değil, istersen aynı anda birden fazla yapay zekâya (Claude, ChatGPT, Gemini) sorabilirsin. Hepsi kodu ayrı ayrı inceler, sonra bulgular tek bir ortak rapor halinde birleştirilir — yani üç farklı "göz" aynı kodu kontrol etmiş olur.
+Say you wrote something and you're wondering "should I get this checked for security issues?" but hiring a security consultant isn't really an option. VaultScan is built for exactly that: it shows your code (or your whole project) to AI and lists what it finds, each tagged with a severity (critical / high / medium / low).
 
-## Özellikler
+What makes it different: instead of relying on a single model, you can run Claude, ChatGPT, and Gemini on the same code at the same time. Each one reviews independently, then the findings are merged into one combined report — so three different "eyes" end up checking the same code, and you can see exactly which model caught what.
 
-- **Kod yapıştır** — küçük bir kod parçasını direkt yapıştırıp analiz et.
-- **Dosya / ZIP yükle** — tek dosya veya birden fazla dosya içeren bir ZIP yükle, VaultScan en kritik dosyaları öncelik sırasına koyup analiz eder.
-- **GitHub repo analizi** — bir GitHub repo linki ver (public veya token ile private), VaultScan repoyu tarar ve dosya dosya ilerlerken anlık ilerleme gösterir.
-- **Çoklu yapay zekâ desteği** — Claude (Anthropic), ChatGPT (OpenAI) ve Gemini (Google) arasından istediğini seç.
-- **Birlikte analiz (collaborative mode)** — birden fazla AI'yı aynı anda seçtiğinde, hepsinin bulguları tek bir raporda birleştirilir ve hangi AI'nın neyi bulduğu belirtilir.
-- **Google ile giriş** — uygulamayı kullanmak için Google hesabınla giriş yapman gerekir.
-- **Kendi API key'in (BYOK)** — VaultScan'in kendi AI key'i yok; her kullanıcı `/settings` sayfasından kendi Claude/ChatGPT/Gemini key'ini ekler ve analizlerde kendi key'i kullanılır. Key'ler şifrelenmiş olarak saklanır.
-- **Rapor dışa aktarma** — sonucu Markdown olarak indir veya PDF olarak yazdır.
-- **Analiz geçmişi** — `/history` sayfasında geçmiş analizlerinin raporlarını (kod/dosya/repo içeriği hariç) görebilirsin; `/settings`'ten istediğin zaman kapatabilirsin.
+## Features
 
-## Nasıl çalışır?
+- **Paste code** — drop in a snippet and analyze it directly.
+- **Upload a file / ZIP** — single file or a ZIP with many files; VaultScan prioritizes the most security-relevant files first.
+- **GitHub repo analysis** — give it a repo URL (public, or private with a token) and watch it scan file by file with live progress.
+- **Multi-AI support** — choose between Claude (Anthropic), ChatGPT (OpenAI), and Gemini (Google).
+- **Collaborative mode** — select more than one AI at once and their findings get merged into a single report, with each finding labeled by which model(s) caught it.
+- **Bilingual UI (English/Turkish)** — a language toggle next to the theme toggle switches the entire interface, *and* the AI-generated analysis itself: ask in English, get an English report back; same for Turkish.
+- **Sign in with Google** — required to use the app.
+- **Bring your own API key (BYOK)** — VaultScan has no AI key of its own; each user adds their own Claude/ChatGPT/Gemini key from `/settings`, and that key is used for their analyses. Keys are stored encrypted, never shown back in plain text.
+- **Export reports** — download as Markdown or print as PDF.
+- **Analysis history** — `/history` shows past analyses' reports (never the underlying code/file/repo content); can be turned off anytime from `/settings`.
 
-1. Google hesabınla giriş yaparsın.
-2. `/settings` sayfasından kullanacağın AI sağlayıcı(lar)ın için kendi API key'ini eklersin (Claude ve ChatGPT key'leri ücretli — hesabında ödeme yöntemi/kredi olması gerekir; Gemini'nin ücretsiz katmanı var).
-3. Kod yapıştırır, dosya yükler veya bir GitHub repo verirsin.
-4. Hangi yapay zekâ(lar)ı kullanmak istediğini seçersin.
-5. VaultScan kodu seçtiğin AI sağlayıcı(lar)ına — senin kendi key'inle — gönderir, gelen sonuçları okunabilir bir HTML rapora çevirir.
-6. Birden fazla AI seçtiysen, sonuçlar otomatik olarak birleştirilip tek bir rapor haline getirilir.
+## How it works
 
-## Kurulum
+1. Sign in with your Google account.
+2. Add your own API key for whichever AI provider(s) you want to use, from `/settings` (Claude and ChatGPT keys are paid — you need billing/credits on that account; Gemini has a free tier).
+3. Paste code, upload a file, or give it a GitHub repo.
+4. Pick which AI(s) to run.
+5. VaultScan sends the code to your chosen provider(s) — using your own key — and turns the response into a readable HTML report.
+6. If you picked more than one AI, the results are automatically merged into a single combined report.
 
-Projeyi kendi makinende çalıştırmak için:
+## Running it locally
 
 ```bash
 git clone <repo-url>
@@ -43,68 +44,77 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-`.env.example` dosyasını kopyalayıp kendi `.env` dosyanı oluştur:
+Copy `.env.example` to `.env`:
 
 ```bash
 cp .env.example .env
 ```
 
-`.env` içine kendi değerlerini gir:
+Fill in your own values:
 
-| Değişken | Ne işe yarar |
+| Variable | What it's for |
 |---|---|
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google ile giriş için (Google Cloud Console'dan OAuth Client ID oluştur) |
-| `SESSION_SECRET` | Oturum çerezlerini imzalamak için rastgele bir metin (örn. `python -c "import secrets; print(secrets.token_hex(32))"`) |
-| `ENCRYPTION_KEY` | Kullanıcıların kendi AI API key'lerini veritabanında şifreli saklamak için (örn. `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google sign-in (create an OAuth Client ID in Google Cloud Console) |
+| `SESSION_SECRET` | Random string used to sign session cookies (e.g. `python -c "import secrets; print(secrets.token_hex(32))"`) |
+| `ENCRYPTION_KEY` | Used to encrypt users' AI API keys at rest (e.g. `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`) |
+| `DATABASE_URL` | Optional. Defaults to a local SQLite file (`sqlite:///vaultscan.db`) if unset; production runs on Postgres (Neon) |
 
-VaultScan'in kendi AI key'i yok — her kullanıcı kendi Claude/ChatGPT/Gemini key'ini uygulama içinden (`/settings`) girer, `.env`'e AI key'i eklemene gerek yok.
+VaultScan has no AI key of its own — each user enters their own Claude/ChatGPT/Gemini key from inside the app (`/settings`), so you don't need to add one to `.env`.
 
-Sunucuyu başlat:
+Start the server:
 
 ```bash
 uvicorn main:app --reload
 ```
 
-Tarayıcıda `http://localhost:8000` adresini aç.
+Open `http://localhost:8000` in your browser.
 
-## Testleri çalıştırma
+## Running the tests
 
 ```bash
 pytest
 ```
 
-Testler kendi izole veritabanı dosyasını kullanır, gerçek verine dokunmaz.
+Tests use their own isolated database file and never touch real data. CI runs the same suite on every push/PR via GitHub Actions (`.github/workflows/tests.yml`).
 
-## Teknoloji yığını
+## Tech stack
 
 - **Backend:** FastAPI (Python)
-- **Veritabanı:** SQLite + SQLAlchemy
-- **Kimlik doğrulama:** Google OAuth (Authlib) + imzalı oturum çerezleri
-- **Yapay zekâ sağlayıcıları:** Anthropic (Claude), OpenAI (ChatGPT), Google (Gemini)
-- **Frontend:** Düz HTML/CSS/JavaScript (framework yok, basit tutuldu)
+- **Database:** SQLAlchemy — Postgres (Neon) in production, SQLite for local dev
+- **Auth:** Google OAuth (Authlib) + signed session cookies
+- **AI providers:** Anthropic (Claude), OpenAI (ChatGPT), Google (Gemini)
+- **Frontend:** Plain HTML/CSS/JavaScript (no framework, kept deliberately simple), with a small `i18n.js` module for the English/Turkish language toggle
+- **CI:** GitHub Actions
 
-## Proje yapısı
+## Project structure
 
 ```
 VaultScan/
-├── main.py              # FastAPI route'ları (analyze, upload, github, auth, API key yönetimi vs.)
-├── analyzer.py          # Tek/çoklu AI analiz akışı, sonuçları birleştirme mantığı
-├── db.py                # SQLAlchemy modelleri (User) ve veritabanı yardımcıları
-├── auth.py              # Google OAuth istemcisi
-├── config.py            # Ortam değişkenlerini okuyan ayar dosyası
-├── prompts.py           # AI'lara gönderilen sistem promptları
-├── providers/           # Her AI sağlayıcı için ayrı modül (claude/chatgpt/gemini)
-├── static/              # Frontend (HTML/CSS/JS, /settings sayfası dahil)
-└── tests/               # pytest test paketi
+├── main.py              # FastAPI routes (analyze, upload, github, auth, API key management, etc.)
+├── analyzer.py          # Single/multi-AI analysis flow, result-merging logic
+├── db.py                # SQLAlchemy models (User, Analysis) and database helpers
+├── auth.py              # Google OAuth client
+├── config.py            # Reads environment variables / settings
+├── prompts.py           # System prompts sent to the AIs (English + Turkish)
+├── i18n.py              # Backend message catalog (English + Turkish), keyed off the X-Lang header
+├── providers/           # One module per AI provider (claude/chatgpt/gemini)
+├── static/              # Frontend (HTML/CSS/JS), including i18n.js and the /settings, /history pages
+└── tests/               # pytest test suite
 ```
 
-## Yol haritası
+## Roadmap
 
-VaultScan aktif geliştiriliyor. Şu an üzerinde çalışılan/planlanan konular:
+VaultScan is under active development. Currently being worked on / planned:
 
-- Arayüz iyileştirmeleri
-- Ödeme/abonelik entegrasyonu (şu an beklemede — bkz. proje notları)
+- More UI polish
+- Payment/subscription integration (currently on hold — see project notes)
 
-## Lisans
+## License
 
-Bu proje şu an özel (private) geliştirme aşamasındadır.
+No formal license has been chosen yet. The source is public on GitHub for transparency, but please don't assume permission to reuse it commercially without asking.
+
+---
+
+## Türkçe (kısa özet)
+
+VaultScan, kodunu (veya bir GitHub reponu) yapay zekâya gösterip güvenlik açığı olup olmadığını sorduğun bir araç. Tek bir AI'a değil, istersen Claude, ChatGPT ve Gemini'ye aynı anda sorabilirsin — bulgular tek bir ortak raporda birleşir. Her kullanıcı kendi API key'ini ekler (BYOK), key'ler şifreli saklanır. Arayüz hem Türkçe hem İngilizce — sağ üstteki dil butonuyla değiştirebilirsin, AI'nın ürettiği rapor da seçtiğin dile göre gelir. Canlı adres: https://vaultscan-pxyt.onrender.com
