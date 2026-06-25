@@ -245,6 +245,12 @@ def validate_provider(provider: str, user: User, lang: str = "tr") -> str | None
 def validate_providers(providers: list[str], user: User, lang: str = "tr") -> str | None:
     if not providers:
         return t(lang, "select_at_least_one_provider")
+    # providers'a sınırsız/tekrarlı sağlayıcı koyup (örn. ["claude"]*1000) tek bir
+    # istekten paylaşılan asyncio thread-pool'unu doldurarak diğer tüm kullanıcıların
+    # isteklerini açlığa düşürmeyi engelle — meşru istemci asla aynı sağlayıcıyı
+    # birden fazla seçmez, bu sadece kötüye kullanım yolunu kapatır.
+    if len(providers) > len(PROVIDERS) or len(set(providers)) != len(providers):
+        return t(lang, "invalid_provider_list")
     for provider in providers:
         error = validate_provider(provider, user, lang)
         if error:

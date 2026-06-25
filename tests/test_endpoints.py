@@ -237,6 +237,20 @@ def test_analyze_endpoint_empty_providers_returns_error():
     assert "En az bir AI" in resp.json()["error"]
 
 
+def test_analyze_endpoint_rejects_duplicate_providers():
+    # bir istemcinin aynı sağlayıcıyı yüzlerce kez tekrarlayıp paylaşılan
+    # thread-pool'u doldurmasını engelleyen koruma
+    resp = client.post("/analyze", json={"code": "x = 1", "providers": ["claude"] * 200})
+    assert resp.status_code == 200
+    assert "Geçersiz AI seçimi" in resp.json()["error"]
+
+
+def test_analyze_endpoint_rejects_more_providers_than_exist():
+    resp = client.post("/analyze", json={"code": "x = 1", "providers": ["claude", "chatgpt", "gemini", "claude"]})
+    assert resp.status_code == 200
+    assert "Geçersiz AI seçimi" in resp.json()["error"]
+
+
 def test_analyze_endpoint_rejects_oversized_code():
     import main
     too_big = "x" * (main.MAX_PASTE_LENGTH + 1)
