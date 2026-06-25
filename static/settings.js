@@ -40,14 +40,23 @@ async function loadKeyStatuses() {
 
 const KEY_PREFIXES = { claude: 'sk-ant-', chatgpt: 'sk-' };
 
+function isValidKeyFormat(provider, value) {
+  const prefix = KEY_PREFIXES[provider];
+  if (!prefix) return true;
+  if (!value.startsWith(prefix)) return false;
+  // chatgpt'nin 'sk-' kontrolü, claude'un 'sk-ant-' key'ini de yanlışlıkla
+  // kabul eder (sk-ant- de sk- ile başlar) — bunu açıkça reddet.
+  if (provider === 'chatgpt' && value.startsWith(KEY_PREFIXES.claude)) return false;
+  return true;
+}
+
 async function saveKey(card) {
   const provider = card.dataset.provider;
   const input = card.querySelector('.key-input');
   const value = input.value.trim();
   if (!value) { setStatus(t('api_key_empty'), true); return; }
 
-  const prefix = KEY_PREFIXES[provider];
-  if (prefix && !value.startsWith(prefix)) {
+  if (!isValidKeyFormat(provider, value)) {
     setStatus(t('invalid_key_format'), true);
     return;
   }

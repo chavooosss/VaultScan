@@ -67,3 +67,17 @@ def test_analyze_code_uses_english_prompt_when_lang_is_en():
 def test_missing_api_key_raises_provider_not_configured():
     with pytest.raises(ProviderNotConfigured):
         openai_provider.analyze_code("x = 1", "Python", api_key="")
+
+
+def test_analyze_code_raises_runtime_error_on_empty_content():
+    client = _mock_client(None)
+    with patch.object(openai_provider, "_client", return_value=client):
+        with pytest.raises(RuntimeError):
+            openai_provider.analyze_code("print(1)", "Python", api_key="sk-test")
+
+
+def test_synthesize_raises_runtime_error_on_empty_content():
+    client = _mock_client(None)
+    with patch.object(openai_provider, "_client", return_value=client):
+        with pytest.raises(RuntimeError):
+            openai_provider.synthesize("Claude analizi", api_key="sk-test")
