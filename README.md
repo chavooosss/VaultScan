@@ -15,7 +15,7 @@ VaultScan is a tool that lets you point AI at your code and ask: "is there a sec
 
 Say you wrote something and you're wondering "should I get this checked for security issues?" but hiring a security consultant isn't really an option. VaultScan is built for exactly that: it shows your code (or your whole project) to AI and lists what it finds, each tagged with a severity (critical / high / medium / low).
 
-What makes it different: instead of relying on a single model, you can run Claude, ChatGPT, and Gemini on the same code at the same time. Each one reviews independently, then the findings are merged into one combined report — so three different "eyes" end up checking the same code, and you can see exactly which model caught what.
+**Why not just paste the code back into the same AI that wrote it, in a fresh chat?** You can, and it might catch some things — but a single model reviewing its own (or anyone's) code only gives you one opinion, with that one model's particular blind spots. VaultScan's actual point isn't "AI reads your code" — that part is table stakes. It's **running multiple independent models on the same code at once and merging what they find**: Claude, ChatGPT, and Gemini each review the code separately, with a security-specific prompt (not a generic "review my code" chat), and their findings get combined into one report that shows which model(s) caught each issue. A vulnerability one model misses, another often catches — and when all three agree, that's a much stronger signal than any single model's opinion.
 
 ## Features
 

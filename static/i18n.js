@@ -42,6 +42,7 @@ const LANG_DICT = {
     print_title: 'VaultScan — Güvenlik Analiz Raporu',
     result_placeholder: 'Analiz sonucu burada görünecek...',
 
+    login_value_prop: 'Kodunu tek bir AI ile tekrar okumak yerine, Claude + ChatGPT + Gemini\'ye aynı anda sor — bulgular çapraz kontrol edilip tek raporda birleşir.',
     login_subtitle: 'Devam etmek için Google hesabınla giriş yap.',
     login_error: 'Giriş başarısız oldu, lütfen tekrar deneyin.',
     login_with_google: 'Google ile Giriş Yap',
@@ -178,6 +179,7 @@ const LANG_DICT = {
     print_title: 'VaultScan — Security Analysis Report',
     result_placeholder: 'Analysis result will appear here...',
 
+    login_value_prop: 'Instead of re-reading your code through one AI, ask Claude + ChatGPT + Gemini at once — findings are cross-checked and merged into a single report.',
     login_subtitle: 'Sign in with your Google account to continue.',
     login_error: 'Login failed, please try again.',
     login_with_google: 'Sign in with Google',

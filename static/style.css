@@ -707,6 +707,12 @@ button:disabled { background: var(--bg-elevated); color: var(--text-tertiary); c
   margin-bottom: 28px;
 }
 
+.login-card p.value-prop {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
 .google-btn {
   display: inline-flex;
   align-items: center;
